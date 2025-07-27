@@ -29,7 +29,7 @@ export default function ActiveOrdersBar({ activeOrders, onShowOrders, getStatusC
                 </span>
               </div>
               <div className="text-xs sm:text-sm text-gray-600">
-                {order.items?.length || 0} items • ${order.total_amount}
+                {order.items?.length || 0} items • ${order.total_amount.toFixed(2)}
               </div>
               <div className="text-xs text-gray-500 mt-1">
                 {new Date(order.created_at).toLocaleTimeString()}

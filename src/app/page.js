@@ -221,7 +221,10 @@ export default function Home() {
             <h3 className="font-medium text-gray-800 mb-2 text-sm sm:text-base">Demo Accounts:</h3>
             <div className="text-xs sm:text-sm text-gray-600 space-y-1">
               <p><strong>Staff:</strong> staff@homie.kitchen / staff123</p>
-              <p><strong>Customer:</strong> Create a new account</p>
+              <p><strong>Customers:</strong></p>
+              <p>• john@homie.kitchen / customer123</p>
+              <p>• sarah@homie.kitchen / customer123</p>
+              <p>• mike@homie.kitchen / customer123</p>
             </div>
           </div>
         </div>

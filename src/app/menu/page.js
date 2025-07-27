@@ -8,7 +8,8 @@ import { getImageUrl, safeIncludes } from '@/lib/utils';
 import MenuHeader from '@/components/customer/MenuHeader';
 import ActiveOrdersBar from '@/components/customer/ActiveOrdersBar';
 import CategoryTabs from '@/components/customer/CategoryTabs';
-import MenuItemCard from '@/components/staff/MenuItemCard';
+import MenuItemCard from '@/components/customer/MenuItemCard';
+import SetMenuCard from '@/components/customer/SetMenuCard';
 import CartBar from '@/components/common/CartBar';
 import OrderSuccessMessage from '@/components/common/OrderSuccessMessage';
 import SearchBar from '@/components/common/SearchBar';
@@ -28,6 +29,7 @@ export default function MenuPage() {
   const [lastOrderId, setLastOrderId] = useState(null);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [setMenus, setSetMenus] = useState([]);
   const router = useRouter();
 
   useEffect(() => {
@@ -65,7 +67,8 @@ export default function MenuPage() {
       try {
         const response = await fetch(`/api/orders?customerId=${user.id}&role=customer`);
         const data = await response.json();
-        const active = data.filter(order => 
+        const safeData = Array.isArray(data) ? data : [];
+        const active = safeData.filter(order =>
           ['pending', 'preparing', 'ready'].includes(order.status)
         );
         setActiveOrders(active);
@@ -94,12 +97,11 @@ export default function MenuPage() {
           'completed': 'Your order has been completed. Enjoy your meal!',
           'cancelled': 'Your order has been cancelled.'
         };
-
         const message = statusMessages[order.status];
         if (message) {
           addNotification({
             id: Date.now(),
-            type: 'order-update',
+            type: 'order-status',
             title: `Order #${order.id} Update`,
             message: message,
             status: order.status,
@@ -157,29 +159,35 @@ export default function MenuPage() {
 
   const addToCart = (item) => {
     setCart(prevCart => {
-      const existingItem = prevCart.find(cartItem => cartItem.id === item.id);
+      const existingItem = prevCart.find(cartItem => 
+        cartItem.id === item.id && cartItem.type === item.type
+      );
       if (existingItem) {
         return prevCart.map(cartItem =>
-          cartItem.id === item.id
-            ? { ...cartItem, quantity: cartItem.quantity + 1 }
+          cartItem.id === item.id && cartItem.type === item.type
+            ? { ...cartItem, quantity: item.quantity, note: item.note }
             : cartItem
         );
       }
-      return [...prevCart, { ...item, quantity: 1 }];
+      return [...prevCart, { ...item }];
     });
   };
 
-  const removeFromCart = (itemId) => {
+  const removeFromCart = (itemId, itemType) => {
     setCart(prevCart => {
-      const existingItem = prevCart.find(cartItem => cartItem.id === itemId);
+      const existingItem = prevCart.find(cartItem => 
+        cartItem.id === itemId && cartItem.type === itemType
+      );
       if (existingItem && existingItem.quantity > 1) {
         return prevCart.map(cartItem =>
-          cartItem.id === itemId
+          cartItem.id === itemId && cartItem.type === itemType
             ? { ...cartItem, quantity: cartItem.quantity - 1 }
             : cartItem
         );
       }
-      return prevCart.filter(cartItem => cartItem.id !== itemId);
+      return prevCart.filter(cartItem => 
+        !(cartItem.id === itemId && cartItem.type === itemType)
+      );
     });
   };
 
@@ -199,10 +207,29 @@ export default function MenuPage() {
     }
 
     try {
-      const orderItems = cart.map(item => ({
-        menu_item_id: item.id,
-        quantity: item.quantity
-      }));
+      // Flatten set menu items and regular items, include set_menu_id
+      const orderItemsMap = new Map();
+      cart.forEach(item => {
+        if (item.type === 'set') {
+          item.items.forEach(sub => {
+            const key = `${sub.id}|${item.setMenuId}`;
+            const prev = orderItemsMap.get(key) || 0;
+            orderItemsMap.set(key, prev + item.quantity);
+          });
+        } else {
+          const key = `${item.id}|`;
+          const prev = orderItemsMap.get(key) || 0;
+          orderItemsMap.set(key, prev + item.quantity);
+        }
+      });
+      const orderItems = Array.from(orderItemsMap.entries()).map(([key, quantity]) => {
+        const [menu_item_id, set_menu_id] = key.split('|');
+        return {
+          menu_item_id: Number(menu_item_id),
+          quantity,
+          set_menu_id: set_menu_id ? Number(set_menu_id) : undefined
+        };
+      });
 
       const response = await fetch('/api/orders', {
         method: 'POST',
@@ -255,6 +282,34 @@ export default function MenuPage() {
     return matchesCategory && matchesSearch;
   });
 
+  useEffect(() => {
+    const fetchSetMenus = async () => {
+      try {
+        const response = await fetch('/api/set-menus');
+        const data = await response.json();
+        setSetMenus(data);
+      } catch (error) {
+        console.error('Error fetching set menus:', error);
+      }
+    };
+    fetchSetMenus();
+  }, []);
+
+  // Add to cart handler for set menus
+  const addSetMenuToCart = (setMenuData) => {
+    setCart(prevCart => {
+      // Remove existing set menu item if it exists
+      const filteredCart = prevCart.filter(item => !(item.id === setMenuData.id && item.type === 'set'));
+      
+      // Add the new/updated set menu item
+      return [...filteredCart, setMenuData];
+    });
+  };
+
+  useEffect(() => {
+    localStorage.setItem('cart', JSON.stringify(cart));
+  }, [cart]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -292,7 +347,7 @@ export default function MenuPage() {
           placeholder="Search menu items..."
         />
         <CategoryTabs
-          categories={categories}
+          categories={[...categories, { id: 'set', name: 'Set Menus' }]}
           selectedCategory={selectedCategory}
           onSelect={setSelectedCategory}
         />
@@ -303,40 +358,56 @@ export default function MenuPage() {
             </p>
           </div>
         )}
+        {/* No more floating Set Menus section. Integrate set menus into the grid below. */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 mb-20 sm:mb-24">
-          {filteredItems.length === 0 ? (
-            <div className="col-span-full text-center py-12">
-              <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z" /></svg>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">No items found</h3>
-              <p className="text-gray-600 mb-4">
-                {searchQuery 
-                  ? `No menu items match "${searchQuery}"`
-                  : 'No items available in this category'
-                }
-              </p>
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="text-orange-600 hover:text-orange-700 text-sm font-medium"
-                >
-                  Clear search
-                </button>
-              )}
-            </div>
+          {selectedCategory === 'set' ? (
+            setMenus.length === 0 ? (
+              <div className="col-span-full text-center py-12">
+                <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z" /></svg>
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">No set menus found</h3>
+              </div>
+            ) : (
+              setMenus.map(setMenu => (
+                <SetMenuCard
+                  key={setMenu.id}
+                  setMenu={setMenu}
+                  onAddToCart={addSetMenuToCart}
+                  cart={cart}
+                />
+              ))
+            )
           ) : (
-            filteredItems.map(item => (
-              <MenuItemCard
-                key={item.id}
-                item={item}
-                hasImageError={imageErrors.has(item.id)}
-                onAddToCart={addToCart}
-                onImageError={handleImageError}
-              />
-            ))
+            // All Items or category: show both menu items and set menus
+            (filteredItems.length === 0 && setMenus.length === 0) ? (
+              <div className="col-span-full text-center py-12">
+                <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z" /></svg>
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">No items found</h3>
+              </div>
+            ) : (
+              <>
+                {filteredItems.map(item => (
+                  <MenuItemCard
+                    key={item.id}
+                    item={item}
+                    hasImageError={imageErrors.has(item.id)}
+                    onAddToCart={addToCart}
+                    onImageError={handleImageError}
+                    cart={cart}
+                  />
+                ))}
+                {setMenus.map(setMenu => (
+                  <SetMenuCard
+                    key={setMenu.id}
+                    setMenu={setMenu}
+                    onAddToCart={addSetMenuToCart}
+                    cart={cart}
+                  />
+                ))}
+              </>
+            )
           )}
         </div>
       </div>
-      <CartBar cart={cart} total={getCartTotal()} onPlaceOrder={placeOrder} />
       <OrderSuccessMessage show={orderPlaced} />
       {/* Click outside to close notifications */}
       {showNotifications && (

@@ -76,10 +76,31 @@ const initDatabase = () => {
       menu_item_id INTEGER NOT NULL,
       quantity INTEGER NOT NULL,
       price REAL NOT NULL,
+      note TEXT,
       FOREIGN KEY (order_id) REFERENCES orders (id),
       FOREIGN KEY (menu_item_id) REFERENCES menu_items (id)
     )
   `);
+  // Add note column if it doesn't exist (for migrations)
+  try {
+    db.prepare('ALTER TABLE order_items ADD COLUMN note TEXT').run();
+  } catch (e) {
+    // Ignore error if column already exists
+  }
+
+  // Add created_at column to users table if it doesn't exist (for migrations)
+  try {
+    db.prepare('ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP').run();
+  } catch (e) {
+    // Ignore error if column already exists
+  }
+
+  // Update existing users who don't have created_at to have a default value
+  try {
+    db.prepare('UPDATE users SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL').run();
+  } catch (e) {
+    // Ignore error if column doesn't exist yet
+  }
 
   // Insert default categories
   const checkCategory = db.prepare('SELECT id FROM categories WHERE name = ?');

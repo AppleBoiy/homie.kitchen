@@ -19,6 +19,10 @@ export default function MenuItemCard({ item, category, onEdit, onDelete, onImage
         ) : (
           <ImageIcon className="w-8 h-8 sm:w-12 sm:h-12 text-gray-400" />
         )}
+        {/* Status badge */}
+        <span className={`absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-semibold ${item.is_available ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'}`}>
+          {item.is_available ? 'Available' : 'Unavailable'}
+        </span>
       </div>
       <div className="flex flex-col flex-1 p-3 sm:p-4 justify-between">
         <div className="min-h-[90px] flex flex-col justify-start">

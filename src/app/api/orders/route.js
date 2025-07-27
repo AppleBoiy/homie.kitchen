@@ -31,17 +31,43 @@ export async function GET(request) {
     const ordersWithItems = orders.map(order => {
       const orderItems = db.prepare(`
         SELECT 
-          oi.*,
+          oi.*, oi.note,
           mi.name as item_name,
-          mi.description as item_description
+          mi.description as item_description,
+          sm.name as set_menu_name,
+          sm.price as set_menu_price
         FROM order_items oi
-        JOIN menu_items mi ON oi.menu_item_id = mi.id
+        LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
+        LEFT JOIN set_menus sm ON oi.set_menu_id = sm.id
         WHERE oi.order_id = ?
       `).all(order.id);
 
+      // For set menu items, fetch the included items with quantities
+      const orderItemsWithSetDetails = orderItems.map(item => {
+        if (item.set_menu_id) {
+          const setMenuItems = db.prepare(`
+            SELECT 
+              smi.quantity,
+              mi.id,
+              mi.name as item_name,
+              mi.description as item_description,
+              mi.type
+            FROM set_menu_items smi
+            JOIN menu_items mi ON smi.menu_item_id = mi.id
+            WHERE smi.set_menu_id = ?
+          `).all(item.set_menu_id);
+          
+          return {
+            ...item,
+            set_menu_items: setMenuItems
+          };
+        }
+        return item;
+      });
+
       return {
         ...order,
-        items: orderItems
+        items: orderItemsWithSetDetails
       };
     });
 
@@ -69,14 +95,33 @@ export async function POST(request) {
     // Calculate total amount
     let totalAmount = 0;
     for (const item of items) {
-      const menuItem = db.prepare('SELECT price FROM menu_items WHERE id = ?').get(item.menu_item_id);
-      if (!menuItem) {
-        return NextResponse.json(
-          { error: `Menu item with ID ${item.menu_item_id} not found` },
-          { status: 404 }
-        );
+      if (item.set_menu_id) {
+        // For set menu items, use set menu price
+        const setMenu = db.prepare('SELECT price FROM set_menus WHERE id = ?').get(item.set_menu_id);
+        if (!setMenu) {
+          return NextResponse.json(
+            { error: `Set menu with ID ${item.set_menu_id} not found` },
+            { status: 404 }
+          );
+        }
+        totalAmount += setMenu.price * item.quantity;
+      } else {
+        // For regular items, use menu item price
+        if (!item.menu_item_id) {
+          return NextResponse.json(
+            { error: 'Menu item ID is required for regular items' },
+            { status: 400 }
+          );
+        }
+        const menuItem = db.prepare('SELECT price FROM menu_items WHERE id = ?').get(item.menu_item_id);
+        if (!menuItem) {
+          return NextResponse.json(
+            { error: `Menu item with ID ${item.menu_item_id} not found` },
+            { status: 404 }
+          );
+        }
+        totalAmount += menuItem.price * item.quantity;
       }
-      totalAmount += menuItem.price * item.quantity;
     }
 
     // Create order
@@ -85,11 +130,18 @@ export async function POST(request) {
     const orderId = orderResult.lastInsertRowid;
 
     // Insert order items
-    const insertOrderItem = db.prepare('INSERT INTO order_items (order_id, menu_item_id, quantity, price) VALUES (?, ?, ?, ?)');
+    const insertOrderItem = db.prepare('INSERT INTO order_items (order_id, menu_item_id, quantity, price, set_menu_id, note) VALUES (?, ?, ?, ?, ?, ?)');
 
     for (const item of items) {
-      const menuItem = db.prepare('SELECT price FROM menu_items WHERE id = ?').get(item.menu_item_id);
-      insertOrderItem.run(orderId, item.menu_item_id, item.quantity, menuItem.price);
+      if (item.set_menu_id) {
+        // For set menu items, store the set menu price with null menu_item_id
+        const setMenu = db.prepare('SELECT price FROM set_menus WHERE id = ?').get(item.set_menu_id);
+        insertOrderItem.run(orderId, null, item.quantity, setMenu.price, item.set_menu_id, item.note || null);
+      } else {
+        // For regular items, store the menu item price
+        const menuItem = db.prepare('SELECT price FROM menu_items WHERE id = ?').get(item.menu_item_id);
+        insertOrderItem.run(orderId, item.menu_item_id, item.quantity, menuItem.price, null, item.note || null);
+      }
     }
 
     return NextResponse.json(

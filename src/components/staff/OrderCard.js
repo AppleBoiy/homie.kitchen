@@ -26,12 +26,43 @@ export default function OrderCard({ order, onUpdateStatus }) {
         </div>
       </div>
       <div className="mb-2 sm:mb-3">
-        {order.items.map(item => (
-          <div key={item.id} className="flex justify-between text-xs sm:text-sm text-gray-900">
-            <span>{item.quantity}x {item.item_name}</span>
-            <span>${(item.quantity * item.price).toFixed(2)}</span>
-          </div>
-        ))}
+        {order.items.map(item => {
+          if (item.set_menu_id && item.set_menu_items) {
+            // Set menu item - display set name and included items
+            return (
+              <div key={item.id} className="mb-2">
+                <div className="flex justify-between text-xs sm:text-sm text-gray-900">
+                  <span>{item.quantity}x {item.set_menu_name}</span>
+                  <span>${(item.quantity * item.price).toFixed(2)}</span>
+                </div>
+                <div className="ml-2 mt-1 text-xs text-gray-600">
+                  {item.set_menu_items.map(setItem => (
+                    <div key={setItem.id} className="flex justify-between">
+                      <span>• {setItem.item_name}</span>
+                      <span>{setItem.quantity}x</span>
+                    </div>
+                  ))}
+                </div>
+                {item.note && (
+                  <div className="ml-2 mt-1 text-xs text-orange-600 italic">Note: {item.note}</div>
+                )}
+              </div>
+            );
+          } else {
+            // Regular menu item
+            return (
+              <div key={item.id} className="mb-1">
+                <div className="flex justify-between text-xs sm:text-sm text-gray-900">
+                  <span>{item.quantity}x {item.item_name}</span>
+                  <span>${(item.quantity * item.price).toFixed(2)}</span>
+                </div>
+                {item.note && (
+                  <div className="ml-2 mt-0.5 text-xs text-gray-500 italic">Note: {item.note}</div>
+                )}
+              </div>
+            );
+          }
+        })}
       </div>
       <div className="flex space-x-2">
         {order.status === 'pending' && (

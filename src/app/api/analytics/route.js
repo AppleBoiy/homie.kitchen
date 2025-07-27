@@ -169,7 +169,7 @@ async function getSalesData(startDate, period) {
 
 // Popular items analysis
 async function getItemsData(startDate) {
-  // Most popular items
+  // Most popular individual items
   const popularQuery = db.prepare(`
     SELECT 
       mi.name,
@@ -177,13 +177,15 @@ async function getItemsData(startDate) {
       c.name as category,
       COUNT(oi.id) as order_count,
       SUM(oi.quantity) as total_quantity,
-      COALESCE(SUM(oi.quantity * oi.price), 0) as total_revenue
+      COALESCE(SUM(oi.quantity * oi.price), 0) as total_revenue,
+      'item' as type
     FROM menu_items mi
     LEFT JOIN order_items oi ON mi.id = oi.menu_item_id
     LEFT JOIN orders o ON oi.order_id = o.id
     LEFT JOIN categories c ON mi.category_id = c.id
     WHERE (o.created_at IS NULL OR DATE(o.created_at) >= ?) 
       AND (o.status IS NULL OR o.status != 'cancelled')
+      AND oi.set_menu_id IS NULL
     GROUP BY mi.id, mi.name, mi.price, c.name
     ORDER BY total_quantity DESC
     LIMIT 10
@@ -191,7 +193,34 @@ async function getItemsData(startDate) {
   
   const popularItems = popularQuery.all(startDate);
 
-  // Category performance
+  // Most popular set menus
+  const popularSetMenusQuery = db.prepare(`
+    SELECT 
+      sm.name,
+      sm.price,
+      'Set Menu' as category,
+      COUNT(DISTINCT o.id) as order_count,
+      SUM(oi.quantity) as total_quantity,
+      COALESCE(SUM(oi.quantity * sm.price), 0) as total_revenue,
+      'set_menu' as type
+    FROM set_menus sm
+    LEFT JOIN order_items oi ON oi.set_menu_id = sm.id
+    LEFT JOIN orders o ON oi.order_id = o.id
+    WHERE (o.created_at IS NULL OR DATE(o.created_at) >= ?) 
+      AND (o.status IS NULL OR o.status != 'cancelled')
+    GROUP BY sm.id, sm.name, sm.price
+    ORDER BY total_quantity DESC
+    LIMIT 10
+  `);
+  
+  const popularSetMenus = popularSetMenusQuery.all(startDate);
+
+  // Combine and sort by total quantity
+  const allPopularItems = [...popularItems, ...popularSetMenus]
+    .sort((a, b) => b.total_quantity - a.total_quantity)
+    .slice(0, 10);
+
+  // Category performance (including set menus)
   const categoryQuery = db.prepare(`
     SELECT 
       c.name as category,
@@ -203,14 +232,26 @@ async function getItemsData(startDate) {
     LEFT JOIN orders o ON oi.order_id = o.id
     WHERE (o.created_at IS NULL OR DATE(o.created_at) >= ?) 
       AND (o.status IS NULL OR o.status != 'cancelled')
+      AND oi.set_menu_id IS NULL
     GROUP BY c.id, c.name
-    ORDER BY revenue DESC
+    
+    UNION ALL
+    
+    SELECT 
+      'Set Menu' as category,
+      COUNT(DISTINCT o.id) as orders,
+      COALESCE(SUM(oi.quantity * sm.price), 0) as revenue
+    FROM set_menus sm
+    LEFT JOIN order_items oi ON oi.set_menu_id = sm.id
+    LEFT JOIN orders o ON oi.order_id = o.id
+    WHERE (o.created_at IS NULL OR DATE(o.created_at) >= ?) 
+      AND (o.status IS NULL OR o.status != 'cancelled')
   `);
   
-  const categoryPerformance = categoryQuery.all(startDate);
+  const categoryPerformance = categoryQuery.all(startDate, startDate);
 
   return {
-    popularItems,
+    popularItems: allPopularItems,
     categoryPerformance
   };
 }
@@ -227,10 +268,10 @@ async function getCustomersData(startDate) {
       COALESCE(AVG(o.total_amount), 0) as avg_order_value,
       MAX(o.created_at) as last_order
     FROM users u
-    LEFT JOIN orders o ON u.id = o.customer_id
+    INNER JOIN orders o ON u.id = o.customer_id
     WHERE u.role = 'customer'
-      AND (o.created_at IS NULL OR DATE(o.created_at) >= ?)
-      AND (o.status IS NULL OR o.status != 'cancelled')
+      AND DATE(o.created_at) >= ?
+      AND o.status != 'cancelled'
     GROUP BY u.id, u.name, u.email
     ORDER BY total_spent DESC
     LIMIT 10
@@ -238,18 +279,9 @@ async function getCustomersData(startDate) {
   
   const topCustomers = topCustomersQuery.all(startDate);
 
-  // Customer acquisition over time
-  const acquisitionQuery = db.prepare(`
-    SELECT 
-      DATE(created_at) as date,
-      COUNT(*) as new_customers
-    FROM users 
-    WHERE role = 'customer' AND DATE(created_at) >= ?
-    GROUP BY DATE(created_at)
-    ORDER BY date
-  `);
-  
-  const customerAcquisition = acquisitionQuery.all(startDate);
+  // Customer acquisition over time (simplified since users table doesn't have created_at)
+  // For now, we'll use a placeholder since we can't track when customers were created
+  const customerAcquisition = [];
 
   return {
     topCustomers,

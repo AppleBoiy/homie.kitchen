@@ -13,6 +13,8 @@ import MenuList from '@/components/staff/MenuList';
 import IngredientList from '@/components/staff/IngredientList';
 import MenuItemModal from '@/components/staff/MenuItemModal';
 import IngredientModal from '@/components/staff/IngredientModal';
+import SetMenuList from '@/components/staff/SetMenuList';
+import SetMenuModal from '@/components/staff/SetMenuModal';
 
 export default function StaffPage() {
   const [user, setUser] = useState(null);
@@ -29,6 +31,9 @@ export default function StaffPage() {
   const [imageErrors, setImageErrors] = useState(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileStatsOpen, setMobileStatsOpen] = useState(false);
+  const [setMenus, setSetMenus] = useState([]);
+  const [showSetMenuModal, setShowSetMenuModal] = useState(false);
+  const [editingSetMenu, setEditingSetMenu] = useState(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -45,6 +50,14 @@ export default function StaffPage() {
     setUser(userData);
     fetchData();
   }, [router]);
+
+  // Fetch set menus and all items when Set Menus tab is active
+  useEffect(() => {
+    if (activeTab === 'setmenus') {
+      fetchSetMenus();
+      fetchMenuItems(); // all items, not just menu type
+    }
+  }, [activeTab]);
 
   const fetchData = async () => {
     try {
@@ -96,6 +109,16 @@ export default function StaffPage() {
       setIngredients(data);
     } catch (error) {
       console.error('Error fetching ingredients:', error);
+    }
+  };
+
+  const fetchSetMenus = async () => {
+    try {
+      const response = await fetch('/api/set-menus');
+      const data = await response.json();
+      setSetMenus(data);
+    } catch (error) {
+      console.error('Error fetching set menus:', error);
     }
   };
 
@@ -250,6 +273,54 @@ export default function StaffPage() {
     }
   };
 
+  const handleAddSetMenu = () => {
+    setEditingSetMenu(null);
+    setShowSetMenuModal(true);
+  };
+  const handleEditSetMenu = (setMenu) => {
+    setEditingSetMenu(setMenu);
+    setShowSetMenuModal(true);
+  };
+  const handleDeleteSetMenu = async (id) => {
+    if (!window.confirm('Delete this set menu?')) return;
+    try {
+      await fetch('/api/set-menus', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      fetchSetMenus();
+    } catch (error) {
+      console.error('Error deleting set menu:', error);
+    }
+  };
+  const handleSubmitSetMenu = async (form) => {
+    try {
+      const method = editingSetMenu ? 'PUT' : 'POST';
+      const body = editingSetMenu ? { ...form, id: editingSetMenu.id } : form;
+      
+      // Convert form.items to the format expected by the API
+      const apiBody = {
+        ...body,
+        items: form.items.map(item => ({
+          menu_item_id: item.menu_item_id,
+          quantity: item.quantity
+        }))
+      };
+      
+      await fetch('/api/set-menus', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(apiBody)
+      });
+      setShowSetMenuModal(false);
+      setEditingSetMenu(null);
+      fetchSetMenus();
+    } catch (error) {
+      console.error('Error saving set menu:', error);
+    }
+  };
+
   const handleImageError = (itemId) => {
     setImageErrors(prev => new Set(prev).add(itemId));
   };
@@ -314,10 +385,11 @@ export default function StaffPage() {
 
   const filteredData = getFilteredData();
 
+  const safeOrders = Array.isArray(orders) ? orders : [];
   const stats = {
-    totalOrders: orders.length,
-    pendingOrders: orders.filter(o => o.status === 'pending').length,
-    totalRevenue: orders.reduce((sum, order) => sum + order.total_amount, 0),
+    totalOrders: safeOrders.length,
+    pendingOrders: safeOrders.filter(o => o.status === 'pending').length,
+    totalRevenue: safeOrders.reduce((sum, order) => sum + order.total_amount, 0),
     totalItems: menuItems.length,
     totalIngredients: ingredients.length,
     lowStockIngredients: ingredients.filter(i => i.stock_quantity <= i.min_stock_level).length
@@ -341,6 +413,7 @@ export default function StaffPage() {
         user={user}
         onAnalytics={() => router.push('/analytics')}
         onOpenMobileStats={() => setMobileStatsOpen(true)}
+        onUserManagement={() => router.push('/users')}
       />
       <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-6">
         <StatsGrid stats={stats} />
@@ -377,6 +450,16 @@ export default function StaffPage() {
                 }`}
               >
                 Ingredients
+              </button>
+              <button
+                onClick={() => setActiveTab('setmenus')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'setmenus'
+                    ? 'border-orange-500 text-orange-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Set Menus
               </button>
             </nav>
           </div>
@@ -462,6 +545,25 @@ export default function StaffPage() {
                   loading={loading}
                 />
               </>
+            )}
+
+            {activeTab === 'setmenus' && (
+              <div className="py-8">
+                <SetMenuList
+                  setMenus={setMenus}
+                  onEdit={handleEditSetMenu}
+                  onDelete={handleDeleteSetMenu}
+                  onAdd={handleAddSetMenu}
+                />
+                <SetMenuModal
+                  open={showSetMenuModal}
+                  onClose={() => { setShowSetMenuModal(false); setEditingSetMenu(null); }}
+                  onSubmit={handleSubmitSetMenu}
+                  allItems={menuItems}
+                  initialData={editingSetMenu}
+                  loading={false}
+                />
+              </div>
             )}
           </div>
         </div>

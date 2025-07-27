@@ -5,6 +5,7 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const showAll = searchParams.get('all') === 'true';
+    const type = searchParams.get('type');
     
     let query = `
       SELECT 
@@ -13,15 +14,20 @@ export async function GET(request) {
       FROM menu_items mi
       LEFT JOIN categories c ON mi.category_id = c.id
     `;
-    
+    const conditions = [];
     if (!showAll) {
-      query += ` WHERE mi.is_available = 1`;
+      conditions.push('mi.is_available = 1');
     }
-    
+    if (type) {
+      conditions.push('mi.type = ?');
+    }
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
     query += ` ORDER BY c.name, mi.name`;
-    
-    const menuItems = db.prepare(query).all();
-
+    const menuItems = type
+      ? db.prepare(query).all(type)
+      : db.prepare(query).all();
     return NextResponse.json(menuItems);
   } catch (error) {
     console.error('Error fetching menu:', error);
@@ -34,7 +40,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const { name, description, price, category_id, image_url } = await request.json();
+    const { name, description, price, category_id, image_url, type = 'menu', is_available = 1 } = await request.json();
 
     if (!name || !price || !category_id) {
       return NextResponse.json(
@@ -44,11 +50,11 @@ export async function POST(request) {
     }
 
     const insertMenuItem = db.prepare(`
-      INSERT INTO menu_items (name, description, price, category_id, image_url)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO menu_items (name, description, price, category_id, image_url, type, is_available)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
     
-    const result = insertMenuItem.run(name, description, price, category_id, image_url || null);
+    const result = insertMenuItem.run(name, description, price, category_id, image_url || null, type, is_available ? 1 : 0);
 
     return NextResponse.json(
       { 

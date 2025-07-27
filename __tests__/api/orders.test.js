@@ -16,6 +16,8 @@ describe('Orders API', () => {
     // Clean up test data
     db.prepare('DELETE FROM order_items').run();
     db.prepare('DELETE FROM orders').run();
+    db.prepare('DELETE FROM set_menu_items').run();
+    db.prepare('DELETE FROM set_menus').run();
     db.prepare('DELETE FROM menu_items').run();
     db.prepare('DELETE FROM ingredients').run();
     db.prepare('DELETE FROM categories').run();
@@ -251,6 +253,87 @@ describe('Orders API', () => {
       } else {
         expect(true).toBe(false); // This should not happen
       }
+    });
+  });
+
+  describe('Set Menu Integration', () => {
+    it('should create an order with set menu items', () => {
+      // Insert a set menu
+      const insertSetMenu = db.prepare('INSERT INTO set_menus (name, description, price, is_available) VALUES (?, ?, ?, ?)');
+      const setMenuResult = insertSetMenu.run('Test Set Menu', 'A test set menu', 29.99, 1);
+      const setMenuId = setMenuResult.lastInsertRowid;
+      
+      // Insert menu items and link them to set menu
+      const category = db.prepare('SELECT id FROM categories WHERE name = ?').get('Test Appetizers');
+      const insertMenuItem = db.prepare('INSERT INTO menu_items (name, description, price, category_id, type) VALUES (?, ?, ?, ?, ?)');
+      const item1 = insertMenuItem.run('Set Menu Item 1', 'Desc 1', 10.00, category.id, 'menu');
+      const item2 = insertMenuItem.run('Set Menu Item 2', 'Desc 2', 12.00, category.id, 'menu');
+      
+      // Link items to set menu with quantities
+      const linkItem = db.prepare('INSERT INTO set_menu_items (set_menu_id, menu_item_id, quantity) VALUES (?, ?, ?)');
+      linkItem.run(setMenuId, item1.lastInsertRowid, 1);
+      linkItem.run(setMenuId, item2.lastInsertRowid, 2);
+      
+      // Create a customer
+      const customer = db.prepare('SELECT id FROM users WHERE role = ?').get('customer');
+      
+      // Create an order with set menu items
+      const insertOrder = db.prepare('INSERT INTO orders (customer_id, total_amount, status) VALUES (?, ?, ?)');
+      const orderResult = insertOrder.run(customer.id, 29.99, 'pending');
+      const orderId = orderResult.lastInsertRowid;
+      
+      // Insert order items with set_menu_id
+      const insertOrderItem = db.prepare('INSERT INTO order_items (order_id, menu_item_id, quantity, price, set_menu_id) VALUES (?, ?, ?, ?, ?)');
+      insertOrderItem.run(orderId, null, 1, 29.99, setMenuId);
+      
+      // Verify order items
+      const orderItems = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(orderId);
+      expect(orderItems.length).toBe(1);
+      expect(orderItems[0].set_menu_id).toBe(setMenuId);
+      expect(orderItems[0].menu_item_id).toBe(null);
+    });
+
+    it('should update order status to cancelled and verify', () => {
+      // Create a test order
+      const customer = db.prepare('SELECT id FROM users WHERE role = ?').get('customer');
+      const insertOrder = db.prepare('INSERT INTO orders (customer_id, total_amount, status) VALUES (?, ?, ?)');
+      const orderResult = insertOrder.run(customer.id, 19.99, 'pending');
+      const orderId = orderResult.lastInsertRowid;
+      
+      // Update status to cancelled
+      const updateOrder = db.prepare('UPDATE orders SET status = ? WHERE id = ?');
+      const result = updateOrder.run('cancelled', orderId);
+      expect(result.changes).toBe(1);
+      const updatedOrder = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+      expect(updatedOrder.status).toBe('cancelled');
+    });
+
+    it('should retrieve orders with set menu items grouped', () => {
+      // Insert a set menu
+      const insertSetMenu = db.prepare('INSERT INTO set_menus (name, description, price, is_available) VALUES (?, ?, ?, ?)');
+      const setMenuResult = insertSetMenu.run('Test Set Menu 2', 'A test set menu', 39.99, 1);
+      const setMenuId = setMenuResult.lastInsertRowid;
+      
+      // Insert menu items and link them to set menu
+      const category = db.prepare('SELECT id FROM categories WHERE name = ?').get('Test Appetizers');
+      const insertMenuItem = db.prepare('INSERT INTO menu_items (name, description, price, category_id, type) VALUES (?, ?, ?, ?, ?)');
+      const item3 = insertMenuItem.run('Set Menu Item 3', 'Desc 3', 15.00, category.id, 'menu');
+      const item4 = insertMenuItem.run('Set Menu Item 4', 'Desc 4', 18.00, category.id, 'menu');
+      
+      // Link items to set menu with quantities
+      const linkItem = db.prepare('INSERT INTO set_menu_items (set_menu_id, menu_item_id, quantity) VALUES (?, ?, ?)');
+      linkItem.run(setMenuId, item3.lastInsertRowid, 1);
+      linkItem.run(setMenuId, item4.lastInsertRowid, 1);
+      const customer = db.prepare('SELECT id FROM users WHERE role = ?').get('customer');
+      const insertOrder = db.prepare('INSERT INTO orders (customer_id, total_amount, status) VALUES (?, ?, ?)');
+      const orderResult = insertOrder.run(customer.id, 39.99, 'pending');
+      const orderId = orderResult.lastInsertRowid;
+      const insertOrderItem = db.prepare('INSERT INTO order_items (order_id, menu_item_id, quantity, price, set_menu_id) VALUES (?, ?, ?, ?, ?)');
+      insertOrderItem.run(orderId, null, 1, 39.99, setMenuId);
+      // Retrieve and group
+      const grouped = db.prepare('SELECT set_menu_id, COUNT(*) as count FROM order_items WHERE order_id = ? GROUP BY set_menu_id').all(orderId);
+      expect(grouped.length).toBeGreaterThan(0);
+      expect(grouped[0].set_menu_id).toBe(setMenuId);
     });
   });
 }); 

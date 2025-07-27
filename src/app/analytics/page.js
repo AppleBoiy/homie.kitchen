@@ -470,28 +470,43 @@ export default function AnalyticsPage() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {customersData.topCustomers.map((customer, index) => (
-                      <tr key={index}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">{customer.name}</div>
-                            <div className="text-sm text-gray-500">{customer.email}</div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {customer.order_count}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {formatCurrency(customer.total_spent)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatCurrency(customer.avg_order_value)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {customer.last_order ? new Date(customer.last_order).toLocaleDateString() : 'Never'}
+                    {loading ? (
+                      <tr>
+                        <td colSpan="5" className="py-8 text-center text-gray-500">
+                          <span className="inline-block animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-gray-900 mr-2 align-middle"></span>
+                          Loading customers...
                         </td>
                       </tr>
-                    ))}
+                    ) : (!Array.isArray(customersData?.topCustomers) || customersData.topCustomers.length === 0) ? (
+                      <tr>
+                        <td colSpan="5" className="py-8 text-center text-gray-500">
+                          No orders found in this period.
+                        </td>
+                      </tr>
+                    ) : (
+                      customersData.topCustomers.map((customer, index) => (
+                        <tr key={index}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">{customer.name}</div>
+                              <div className="text-sm text-gray-500">{customer.email}</div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {customer.order_count}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {formatCurrency(customer.total_spent)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {formatCurrency(customer.avg_order_value)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {customer.last_order ? new Date(customer.last_order).toLocaleDateString() : 'Never'}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -501,24 +516,33 @@ export default function AnalyticsPage() {
             <div className="bg-white p-6 rounded-lg shadow">
               <h3 className="text-lg font-medium text-gray-900 mb-4">New Customer Acquisition</h3>
               <div className="h-64 flex items-end justify-between space-x-2">
-                {customersData.customerAcquisition.map((item, index) => {
-                  const maxCustomers = Math.max(...customersData.customerAcquisition.map(d => d.new_customers));
-                  const height = maxCustomers > 0 ? (item.new_customers / maxCustomers) * 100 : 0;
-                  return (
-                    <div key={index} className="flex-1 flex flex-col items-center">
-                      <div 
-                        className="w-full bg-blue-500 rounded-t transition-all duration-300 hover:bg-blue-600"
-                        style={{ height: `${height}%` }}
-                      ></div>
-                      <p className="text-xs text-gray-500 mt-2 text-center">
-                        {new Date(item.date).toLocaleDateString()}
-                      </p>
-                      <p className="text-xs font-medium text-gray-700">
-                        {item.new_customers} new
-                      </p>
-                    </div>
-                  );
-                })}
+                {loading ? (
+                  <div className="w-full flex items-center justify-center h-full">
+                    <span className="inline-block animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-gray-900 mr-2 align-middle"></span>
+                    Loading acquisition data...
+                  </div>
+                ) : (!Array.isArray(customersData?.customerAcquisition) || customersData.customerAcquisition.length === 0) ? (
+                  <div className="w-full text-center text-gray-500 py-12">No acquisition data for this period.</div>
+                ) : (
+                  customersData.customerAcquisition.map((item, index) => {
+                    const maxCustomers = Math.max(...customersData.customerAcquisition.map(d => d.new_customers));
+                    const height = maxCustomers > 0 ? (item.new_customers / maxCustomers) * 100 : 0;
+                    return (
+                      <div key={index} className="flex-1 flex flex-col items-center">
+                        <div 
+                          className="w-full bg-blue-500 rounded-t transition-all duration-300 hover:bg-blue-600"
+                          style={{ height: `${height}%` }}
+                        ></div>
+                        <p className="text-xs text-gray-500 mt-2 text-center">
+                          {new Date(item.date).toLocaleDateString()}
+                        </p>
+                        <p className="text-xs font-medium text-gray-700">
+                          {item.new_customers} new
+                        </p>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>

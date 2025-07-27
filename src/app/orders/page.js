@@ -29,9 +29,10 @@ export default function OrdersPage() {
       setRefreshing(true);
       const response = await fetch(`/api/orders?customerId=${customerId}&role=customer`);
       const data = await response.json();
-      setOrders(data);
+      setOrders(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching orders:', error);
+      setOrders([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -42,7 +43,7 @@ export default function OrdersPage() {
   useEffect(() => {
     if (!user) return;
 
-    const activeOrders = orders.filter(order => 
+    const activeOrders = (Array.isArray(orders) ? orders : []).filter(order => 
       ['pending', 'preparing', 'ready'].includes(order.status)
     );
 
@@ -115,7 +116,7 @@ export default function OrdersPage() {
   };
 
   // Filter orders based on search query
-  const filteredOrders = orders.filter(order => {
+  const filteredOrders = (Array.isArray(orders) ? orders : []).filter(order => {
     if (!searchQuery) return true;
     
     const query = searchQuery.toLowerCase();
@@ -182,7 +183,7 @@ export default function OrdersPage() {
       </div>
 
       <div className="container mx-auto px-4 py-4 sm:py-6">
-        {orders.length === 0 ? (
+        {(Array.isArray(orders) ? orders : []).length === 0 ? (
           <div className="text-center py-8 sm:py-12">
             <Package className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-4" />
             <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">No Orders Yet</h2>
@@ -199,7 +200,7 @@ export default function OrdersPage() {
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0">
               <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Order History</h2>
               <div className="text-sm text-gray-600">
-                {orders.filter(o => ['pending', 'preparing', 'ready'].includes(o.status)).length} active orders
+                {(Array.isArray(orders) ? orders : []).filter(o => ['pending', 'preparing', 'ready'].includes(o.status)).length} active orders
               </div>
             </div>
 
@@ -312,22 +313,88 @@ export default function OrdersPage() {
                       )}
 
                       <div className="space-y-2 sm:space-y-3 mb-4">
-                        {order.items.map(item => (
-                          <div key={item.id} className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b border-gray-100 last:border-b-0 gap-2 sm:gap-0">
-                            <div className="flex-1">
-                              <p className="font-medium text-gray-800 text-sm sm:text-base">{item.item_name}</p>
-                              <p className="text-gray-600 text-xs sm:text-sm">{item.item_description}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-medium text-gray-800 text-sm sm:text-base">
-                                {item.quantity} × ${item.price.toFixed(2)}
-                              </p>
-                              <p className="text-gray-600 text-xs sm:text-sm">
-                                ${(item.quantity * item.price).toFixed(2)}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
+                        {(() => {
+                          // Group items by set_menu_id
+                          const groups = {};
+                          order.items.forEach(item => {
+                            const key = item.set_menu_id || 'single';
+                            if (!groups[key]) groups[key] = [];
+                            groups[key].push(item);
+                          });
+                          return Object.entries(groups).map(([set_menu_id, items], idx) => {
+                            if (set_menu_id !== 'single') {
+                              // Set menu group
+                              const firstItem = items[0];
+                              const setMenuPrice = firstItem.set_menu_price;
+                              // Count the number of sets ordered (all items in a set have the same quantity)
+                              const setsOrdered = firstItem.quantity;
+                              const setMenuTotal = setMenuPrice * setsOrdered;
+                              
+                              return (
+                                <div key={set_menu_id} className="bg-orange-50 rounded p-2 mb-2">
+                                  <div className="flex justify-between items-center mb-1">
+                                    <div className="font-bold text-orange-700 text-sm">Set Menu</div>
+                                    <div className="text-right">
+                                      <p className="font-medium text-gray-800 text-sm">{setsOrdered} × ${setMenuPrice.toFixed(2)}</p>
+                                      <p className="text-gray-600 text-xs">${setMenuTotal.toFixed(2)}</p>
+                                    </div>
+                                  </div>
+                                  {firstItem.set_menu_items ? (
+                                    // Display set menu items from the set_menu_items array
+                                    firstItem.set_menu_items.map((setItem, idx) => (
+                                      <div key={idx} className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-1 border-b border-gray-100 last:border-b-0 gap-2 sm:gap-0">
+                                        <div className="flex-1">
+                                          <p className="font-medium text-gray-800 text-sm sm:text-base">{setItem.item_name}</p>
+                                          <p className="text-gray-600 text-xs sm:text-sm">{setItem.item_description}</p>
+                                        </div>
+                                        <div className="text-right">
+                                          <p className="text-gray-600 text-xs sm:text-sm">{setItem.quantity}x</p>
+                                        </div>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    // Fallback to original logic if set_menu_items is not available
+                                    items.map(item => (
+                                      <div key={item.id} className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-1 border-b border-gray-100 last:border-b-0 gap-2 sm:gap-0">
+                                        <div className="flex-1">
+                                          <p className="font-medium text-gray-800 text-sm sm:text-base">{item.item_name}</p>
+                                          <p className="text-gray-600 text-xs sm:text-sm">{item.item_description}</p>
+                                        </div>
+                                        <div className="text-right">
+                                          <p className="text-gray-600 text-xs sm:text-sm">{item.quantity}x</p>
+                                        </div>
+                                      </div>
+                                    ))
+                                  )}
+                                  {firstItem.note && (
+                                    <div className="mt-2 text-orange-600 text-xs sm:text-sm italic">
+                                      Note: {firstItem.note}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            } else {
+                              // Regular items
+                              return items.map(item => (
+                                <div key={item.id} className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b border-gray-100 last:border-b-0 gap-2 sm:gap-0">
+                                  <div className="flex-1">
+                                    <p className="font-medium text-gray-800 text-sm sm:text-base">{item.item_name}</p>
+                                    <p className="text-gray-600 text-xs sm:text-sm">{item.item_description}</p>
+                                    {item.note && (
+                                      <p className="text-orange-600 text-xs sm:text-sm mt-1 italic">
+                                        Note: {item.note}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="font-medium text-gray-800 text-sm sm:text-base">{item.quantity} × ${item.price.toFixed(2)}</p>
+                                    <p className="text-gray-600 text-xs sm:text-sm">${(item.quantity * item.price).toFixed(2)}</p>
+                                  </div>
+                                </div>
+                              ));
+                            }
+                          });
+                        })()}
                       </div>
 
                       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0 pt-4 border-t border-gray-200">

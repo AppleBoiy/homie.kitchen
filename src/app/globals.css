@@ -29,6 +29,16 @@ input, textarea {
   color: #171717;
 }
 
+select {
+  color: #171717;
+}
+
+select:disabled, select[disabled] {
+  color: #171717 !important; /* Black for maximum readability */
+  background-color: #f3f4f6 !important; /* Tailwind gray-100 */
+  opacity: 1 !important;
+}
+
 /* Custom responsive utilities */
 .scrollbar-hide {
   -ms-overflow-style: none;  /* Internet Explorer 10+ */

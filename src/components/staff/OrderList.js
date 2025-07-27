@@ -20,7 +20,7 @@ export default function OrderList({ orders, searchQuery, onSearch, onUpdateStatu
       ) : (
         <div className="overflow-x-auto">
           <div className="space-y-3 min-w-[320px]">
-            {orders.map(order => (
+            {(Array.isArray(orders) ? orders : []).map(order => (
               <OrderCard key={order.id} order={order} onUpdateStatus={onUpdateStatus} />
             ))}
           </div>

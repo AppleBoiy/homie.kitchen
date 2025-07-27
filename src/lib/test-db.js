@@ -54,8 +54,33 @@ const createTestDatabase = () => {
         category_id INTEGER,
         image_url TEXT,
         is_available BOOLEAN DEFAULT 1,
+        type TEXT DEFAULT 'menu',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (category_id) REFERENCES categories (id)
+      )
+    `);
+
+    // Set menus table
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS set_menus (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT,
+        price REAL NOT NULL,
+        is_available INTEGER DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Set menu items with quantities
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS set_menu_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        set_menu_id INTEGER,
+        menu_item_id INTEGER,
+        quantity INTEGER DEFAULT 1,
+        FOREIGN KEY (set_menu_id) REFERENCES set_menus(id),
+        FOREIGN KEY (menu_item_id) REFERENCES menu_items(id)
       )
     `);
 
@@ -76,11 +101,14 @@ const createTestDatabase = () => {
       CREATE TABLE IF NOT EXISTS order_items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         order_id INTEGER NOT NULL,
-        menu_item_id INTEGER NOT NULL,
+        menu_item_id INTEGER,
         quantity INTEGER NOT NULL,
         price REAL NOT NULL,
+        set_menu_id INTEGER,
+        note TEXT,
         FOREIGN KEY (order_id) REFERENCES orders (id),
-        FOREIGN KEY (menu_item_id) REFERENCES menu_items (id)
+        FOREIGN KEY (menu_item_id) REFERENCES menu_items (id),
+        FOREIGN KEY (set_menu_id) REFERENCES set_menus (id)
       )
     `);
   };
@@ -115,11 +143,20 @@ const insertTestData = (db) => {
   insertMenuItem.run('Test Bruschetta', 'Test bruschetta', 8.99, category.id, 'test-url');
   insertMenuItem.run('Test Salad', 'Test salad', 12.99, category.id, 'test-url');
 
-  // Insert test users
+  // Insert test users (including dummy accounts)
   const hashedPassword = bcrypt.hashSync('test123', 10);
+  const staffPassword = bcrypt.hashSync('staff123', 10);
+  const customerPassword = bcrypt.hashSync('customer123', 10);
+  
   const insertUser = db.prepare('INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)');
   insertUser.run('test@example.com', hashedPassword, 'Test User', 'customer');
   insertUser.run('staff@example.com', hashedPassword, 'Test Staff', 'staff');
+  
+  // Insert dummy accounts (same as init-db.js)
+  insertUser.run('staff@homie.kitchen', staffPassword, 'Staff', 'staff');
+  insertUser.run('john@homie.kitchen', customerPassword, 'John Customer', 'customer');
+  insertUser.run('sarah@homie.kitchen', customerPassword, 'Sarah Customer', 'customer');
+  insertUser.run('mike@homie.kitchen', customerPassword, 'Mike Customer', 'customer');
 };
 
 // Helper function to clean up test database
