@@ -54,17 +54,7 @@ const initDatabase = () => {
     )
   `);
 
-  // Menu item ingredients (many-to-many relationship)
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS menu_item_ingredients (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      menu_item_id INTEGER NOT NULL,
-      ingredient_id INTEGER NOT NULL,
-      quantity REAL NOT NULL,
-      FOREIGN KEY (menu_item_id) REFERENCES menu_items (id) ON DELETE CASCADE,
-      FOREIGN KEY (ingredient_id) REFERENCES ingredients (id) ON DELETE CASCADE
-    )
-  `);
+
 
   // Orders table
   db.exec(`
@@ -92,11 +82,22 @@ const initDatabase = () => {
   `);
 
   // Insert default categories
-  const insertCategory = db.prepare('INSERT OR IGNORE INTO categories (name, description) VALUES (?, ?)');
-  insertCategory.run('Appetizers', 'Start your meal with our delicious appetizers');
-  insertCategory.run('Main Course', 'Our signature main dishes');
-  insertCategory.run('Desserts', 'Sweet endings to your meal');
-  insertCategory.run('Beverages', 'Refreshing drinks and beverages');
+  const checkCategory = db.prepare('SELECT id FROM categories WHERE name = ?');
+  const insertCategory = db.prepare('INSERT INTO categories (name, description) VALUES (?, ?)');
+  
+  const categories = [
+    ['Appetizers', 'Start your meal with our delicious appetizers'],
+    ['Main Course', 'Our signature main dishes'],
+    ['Desserts', 'Sweet endings to your meal'],
+    ['Beverages', 'Refreshing drinks and beverages']
+  ];
+  
+  categories.forEach(([name, description]) => {
+    const existing = checkCategory.get(name);
+    if (!existing) {
+      insertCategory.run(name, description);
+    }
+  });
 
   // Insert default staff user
   const hashedPassword = bcrypt.hashSync('staff123', 10);
@@ -104,19 +105,29 @@ const initDatabase = () => {
   insertUser.run('staff@homie.kitchen', hashedPassword, 'Staff User', 'staff');
 
   // Insert sample ingredients
+  const checkIngredient = db.prepare('SELECT id FROM ingredients WHERE name = ?');
   const insertIngredient = db.prepare(`
-    INSERT OR IGNORE INTO ingredients (name, description, stock_quantity, unit, min_stock_level) 
+    INSERT INTO ingredients (name, description, stock_quantity, unit, min_stock_level) 
     VALUES (?, ?, ?, ?, ?)
   `);
   
-  insertIngredient.run('Tomatoes', 'Fresh tomatoes', 50, 'pieces', 10);
-  insertIngredient.run('Bread', 'Fresh bread', 30, 'pieces', 5);
-  insertIngredient.run('Salmon', 'Fresh salmon fillets', 20, 'pieces', 5);
-  insertIngredient.run('Beef', 'Ground beef', 25, 'kg', 5);
-  insertIngredient.run('Lettuce', 'Fresh lettuce', 15, 'pieces', 3);
-  insertIngredient.run('Cheese', 'Cheddar cheese', 10, 'kg', 2);
-  insertIngredient.run('Coffee Beans', 'Premium coffee beans', 20, 'kg', 5);
-  insertIngredient.run('Chocolate', 'Dark chocolate', 8, 'kg', 2);
+  const ingredients = [
+    ['Tomatoes', 'Fresh tomatoes', 50, 'pieces', 10],
+    ['Bread', 'Fresh bread', 30, 'pieces', 5],
+    ['Salmon', 'Fresh salmon fillets', 20, 'pieces', 5],
+    ['Beef', 'Ground beef', 25, 'kg', 5],
+    ['Lettuce', 'Fresh lettuce', 15, 'pieces', 3],
+    ['Cheese', 'Cheddar cheese', 10, 'kg', 2],
+    ['Coffee Beans', 'Premium coffee beans', 20, 'kg', 5],
+    ['Chocolate', 'Dark chocolate', 8, 'kg', 2]
+  ];
+  
+  ingredients.forEach(([name, description, stock_quantity, unit, min_stock_level]) => {
+    const existing = checkIngredient.get(name);
+    if (!existing) {
+      insertIngredient.run(name, description, stock_quantity, unit, min_stock_level);
+    }
+  });
 
   // Insert sample menu items with proper web URLs
   const checkMenuItem = db.prepare('SELECT id FROM menu_items WHERE name = ?');
@@ -141,37 +152,28 @@ const initDatabase = () => {
     }
   });
 
-  // Insert menu item ingredients relationships
-  const insertMenuItemIngredient = db.prepare(`
-    INSERT OR IGNORE INTO menu_item_ingredients (menu_item_id, ingredient_id, quantity) 
-    VALUES (?, ?, ?)
-  `);
-  
-  // Bruschetta ingredients
-  insertMenuItemIngredient.run(1, 1, 2); // 2 tomatoes
-  insertMenuItemIngredient.run(1, 2, 1); // 1 bread slice
-  
-  // Caesar Salad ingredients
-  insertMenuItemIngredient.run(2, 5, 1); // 1 lettuce
-  insertMenuItemIngredient.run(2, 6, 0.1); // 0.1kg cheese
-  
-  // Grilled Salmon ingredients
-  insertMenuItemIngredient.run(3, 3, 1); // 1 salmon fillet
-  
-  // Beef Burger ingredients
-  insertMenuItemIngredient.run(4, 4, 0.2); // 0.2kg beef
-  insertMenuItemIngredient.run(4, 5, 0.5); // 0.5 lettuce
-  insertMenuItemIngredient.run(4, 6, 0.05); // 0.05kg cheese
-  insertMenuItemIngredient.run(4, 2, 1); // 1 bread slice
-  
-  // Chocolate Cake ingredients
-  insertMenuItemIngredient.run(5, 8, 0.1); // 0.1kg chocolate
-  
-  // Iced Coffee ingredients
-  insertMenuItemIngredient.run(6, 7, 0.02); // 0.02kg coffee beans
+
 };
 
-// Initialize database on first run
-initDatabase();
+// Check if database is already initialized
+const isInitialized = () => {
+  try {
+    const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get();
+    const categoryCount = db.prepare('SELECT COUNT(*) as count FROM categories').get();
+    return userCount.count > 0 && categoryCount.count > 0;
+  } catch (error) {
+    return false;
+  }
+};
+
+// Initialize database only if not already initialized
+if (!isInitialized()) {
+  try {
+    initDatabase();
+    console.log('Database initialized successfully');
+  } catch (error) {
+    console.error('Database initialization error:', error);
+  }
+}
 
 export default db; 

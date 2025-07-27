@@ -42,6 +42,7 @@ export async function DELETE(request, { params }) {
   try {
     const { id } = await params;
 
+    // Delete the ingredient (relationships will be handled separately if needed)
     const deleteIngredient = db.prepare('DELETE FROM ingredients WHERE id = ?');
     const result = deleteIngredient.run(id);
 

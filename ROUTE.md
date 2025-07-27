@@ -346,4 +346,4 @@ The system uses SQLite with the following main tables:
 - `ingredients` - Inventory items
 - `orders` - Customer orders
 - `order_items` - Individual items in orders
-- `menu_item_ingredients` - Many-to-many relationship between menu items and ingredients 
+ 

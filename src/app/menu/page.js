@@ -25,31 +25,26 @@ export default function MenuPage() {
     }
     setUser(JSON.parse(savedUser));
 
-    fetchMenu();
-    fetchCategories();
-  }, [router]);
+    const fetchData = async () => {
+      try {
+        const menuResponse = await fetch('/api/menu');
+        const menuData = await menuResponse.json();
+        setMenuItems(menuData);
+        
+        const categoriesResponse = await fetch('/api/categories');
+        const categoriesData = await categoriesResponse.json();
+        setCategories(categoriesData);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const fetchMenu = async () => {
-    try {
-      const response = await fetch('/api/menu');
-      const data = await response.json();
-      setMenuItems(data);
-    } catch (error) {
-      console.error('Error fetching menu:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    fetchData();
+  }, []);
 
-  const fetchCategories = async () => {
-    try {
-      const response = await fetch('/api/categories');
-      const data = await response.json();
-      setCategories(data);
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-    }
-  };
+
 
   const addToCart = (item) => {
     setCart(prevCart => {
@@ -150,12 +145,15 @@ export default function MenuPage() {
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-gray-600">Welcome, {user?.name}</span>
-              <button
-                onClick={() => router.push('/orders')}
-                className="p-2 hover:bg-gray-100 rounded-lg"
-              >
-                <Clock className="w-5 h-5" />
-              </button>
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-600">Cart: {cart.length} items</span>
+                <button
+                  onClick={() => router.push('/orders')}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <Clock className="w-5 h-5" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
