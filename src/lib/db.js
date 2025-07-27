@@ -43,7 +43,7 @@ const initDatabase = () => {
   db.exec(`
     CREATE TABLE IF NOT EXISTS menu_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
+      name TEXT NOT NULL UNIQUE,
       description TEXT,
       price REAL NOT NULL,
       category_id INTEGER,
@@ -119,17 +119,27 @@ const initDatabase = () => {
   insertIngredient.run('Chocolate', 'Dark chocolate', 8, 'kg', 2);
 
   // Insert sample menu items with proper web URLs
+  const checkMenuItem = db.prepare('SELECT id FROM menu_items WHERE name = ?');
   const insertMenuItem = db.prepare(`
-    INSERT OR IGNORE INTO menu_items (name, description, price, category_id, image_url) 
+    INSERT INTO menu_items (name, description, price, category_id, image_url) 
     VALUES (?, ?, ?, ?, ?)
   `);
   
-  insertMenuItem.run('Bruschetta', 'Toasted bread topped with tomatoes, garlic, and herbs', 8.99, 1, 'https://images.unsplash.com/photo-1572441713131-4d09e2c54c39?w=400&h=300&fit=crop');
-  insertMenuItem.run('Caesar Salad', 'Fresh romaine lettuce with Caesar dressing and croutons', 12.99, 1, 'https://images.unsplash.com/photo-1546793665-c74683f339c1?w=400&h=300&fit=crop');
-  insertMenuItem.run('Grilled Salmon', 'Fresh salmon grilled to perfection with seasonal vegetables', 24.99, 2, 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=400&h=300&fit=crop');
-  insertMenuItem.run('Beef Burger', 'Juicy beef patty with lettuce, tomato, and special sauce', 16.99, 2, 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=300&fit=crop');
-  insertMenuItem.run('Chocolate Cake', 'Rich chocolate cake with vanilla ice cream', 8.99, 3, 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=300&fit=crop');
-  insertMenuItem.run('Iced Coffee', 'Cold brewed coffee with cream and sugar', 4.99, 4, 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=400&h=300&fit=crop');
+  const menuItems = [
+    ['Bruschetta', 'Toasted bread topped with tomatoes, garlic, and herbs', 8.99, 1, 'https://images.unsplash.com/photo-1572441713131-4d09e2c54c39?w=400&h=300&fit=crop'],
+    ['Caesar Salad', 'Fresh romaine lettuce with Caesar dressing and croutons', 12.99, 1, 'https://images.unsplash.com/photo-1546793665-c74683f339c1?w=400&h=300&fit=crop'],
+    ['Grilled Salmon', 'Fresh salmon grilled to perfection with seasonal vegetables', 24.99, 2, 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=400&h=300&fit=crop'],
+    ['Beef Burger', 'Juicy beef patty with lettuce, tomato, and special sauce', 16.99, 2, 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=300&fit=crop'],
+    ['Chocolate Cake', 'Rich chocolate cake with vanilla ice cream', 8.99, 3, 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=300&fit=crop'],
+    ['Iced Coffee', 'Cold brewed coffee with cream and sugar', 4.99, 4, 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=400&h=300&fit=crop']
+  ];
+  
+  menuItems.forEach(([name, description, price, category_id, image_url]) => {
+    const existing = checkMenuItem.get(name);
+    if (!existing) {
+      insertMenuItem.run(name, description, price, category_id, image_url);
+    }
+  });
 
   // Insert menu item ingredients relationships
   const insertMenuItemIngredient = db.prepare(`

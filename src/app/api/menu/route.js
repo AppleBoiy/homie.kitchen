@@ -1,17 +1,26 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
 
-export async function GET() {
+export async function GET(request) {
   try {
-    const menuItems = db.prepare(`
+    const { searchParams } = new URL(request.url);
+    const showAll = searchParams.get('all') === 'true';
+    
+    let query = `
       SELECT 
         mi.*,
         c.name as category_name
       FROM menu_items mi
       LEFT JOIN categories c ON mi.category_id = c.id
-      WHERE mi.is_available = 1
-      ORDER BY c.name, mi.name
-    `).all();
+    `;
+    
+    if (!showAll) {
+      query += ` WHERE mi.is_available = 1`;
+    }
+    
+    query += ` ORDER BY c.name, mi.name`;
+    
+    const menuItems = db.prepare(query).all();
 
     return NextResponse.json(menuItems);
   } catch (error) {

@@ -61,7 +61,7 @@ export default function StaffPage() {
 
   const fetchMenuItems = async () => {
     try {
-      const response = await fetch('/api/menu');
+      const response = await fetch('/api/menu?all=true');
       const data = await response.json();
       setMenuItems(data);
     } catch (error) {
