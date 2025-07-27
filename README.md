@@ -1,4 +1,4 @@
-# Homie Kitchen - Restaurant Management System
+# Restaurant Management System
 
 A modern restaurant management system built with Next.js, featuring user authentication, menu management, order processing, and inventory tracking.
 
