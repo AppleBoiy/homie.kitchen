@@ -202,7 +202,7 @@ export default function Home() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-orange-600 text-white py-2.5 sm:py-3 px-4 rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 text-sm sm:text-base font-medium"
+              className="w-full bg-orange-600 text-gray-900 py-2.5 sm:py-3 px-4 rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 text-sm sm:text-base font-medium"
             >
               {loading ? 'Loading...' : (isLogin ? 'Sign In' : 'Create Account')}
             </button>

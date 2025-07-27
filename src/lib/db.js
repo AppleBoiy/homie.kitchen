@@ -152,6 +152,81 @@ const initDatabase = () => {
     }
   });
 
+  // Insert sample customers
+  const customerPassword = bcrypt.hashSync('customer123', 10);
+  const insertCustomer = db.prepare('INSERT OR IGNORE INTO users (email, password, name, role) VALUES (?, ?, ?, ?)');
+  
+  const customers = [
+    ['john@example.com', hashedPassword, 'John Smith', 'customer'],
+    ['sarah@example.com', hashedPassword, 'Sarah Johnson', 'customer'],
+    ['mike@example.com', hashedPassword, 'Mike Davis', 'customer'],
+    ['emma@example.com', hashedPassword, 'Emma Wilson', 'customer'],
+    ['alex@example.com', hashedPassword, 'Alex Brown', 'customer']
+  ];
+  
+  customers.forEach(([email, password, name, role]) => {
+    insertCustomer.run(email, customerPassword, name, role);
+  });
+
+  // Insert sample orders with realistic data
+  const insertOrder = db.prepare(`
+    INSERT OR IGNORE INTO orders (id, customer_id, total_amount, status, created_at) 
+    VALUES (?, ?, ?, ?, ?)
+  `);
+  
+  const insertOrderItem = db.prepare(`
+    INSERT OR IGNORE INTO order_items (order_id, menu_item_id, quantity, price) 
+    VALUES (?, ?, ?, ?)
+  `);
+
+  // Get customer and menu item IDs
+  const customerIds = db.prepare('SELECT id FROM users WHERE role = "customer"').all();
+  const menuItemIds = db.prepare('SELECT id, price FROM menu_items').all();
+  
+  if (customerIds.length > 0 && menuItemIds.length > 0) {
+    // Create sample orders for the last 30 days
+    const now = new Date();
+    const orders = [];
+    
+    for (let i = 0; i < 50; i++) {
+      const daysAgo = Math.floor(Math.random() * 30);
+      const orderDate = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
+      const customerId = customerIds[Math.floor(Math.random() * customerIds.length)].id;
+      const numItems = Math.floor(Math.random() * 3) + 1; // 1-3 items per order
+      
+      let totalAmount = 0;
+      const orderItems = [];
+      
+      for (let j = 0; j < numItems; j++) {
+        const menuItem = menuItemIds[Math.floor(Math.random() * menuItemIds.length)];
+        const quantity = Math.floor(Math.random() * 2) + 1; // 1-2 quantity
+        const itemTotal = menuItem.price * quantity;
+        totalAmount += itemTotal;
+        orderItems.push({ menuItemId: menuItem.id, quantity, price: menuItem.price });
+      }
+      
+      const statuses = ['completed', 'completed', 'completed', 'ready', 'preparing', 'pending'];
+      const status = statuses[Math.floor(Math.random() * statuses.length)];
+      
+      orders.push({
+        id: i + 1,
+        customerId,
+        totalAmount: Math.round(totalAmount * 100) / 100,
+        status,
+        createdAt: orderDate.toISOString(),
+        items: orderItems
+      });
+    }
+    
+    // Insert orders and order items
+    orders.forEach(order => {
+      insertOrder.run(order.id, order.customerId, order.totalAmount, order.status, order.createdAt);
+      
+      order.items.forEach(item => {
+        insertOrderItem.run(order.id, item.menuItemId, item.quantity, item.price);
+      });
+    });
+  }
 
 };
 

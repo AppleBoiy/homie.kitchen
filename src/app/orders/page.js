@@ -334,12 +334,40 @@ export default function OrdersPage() {
                         <span className="text-base sm:text-lg font-bold text-gray-800">
                           Total: ${order.total_amount}
                         </span>
-                        {isActive && (
-                          <div className="flex items-center space-x-2 text-blue-600 text-xs sm:text-sm">
-                            <div className="animate-pulse w-2 h-2 bg-blue-600 rounded-full"></div>
-                            <span>Live updates enabled</span>
-                          </div>
-                        )}
+                        <div className="flex items-center space-x-2">
+                          {isActive && (
+                            <>
+                              <div className="flex items-center space-x-2 text-blue-600 text-xs sm:text-sm">
+                                <div className="animate-pulse w-2 h-2 bg-blue-600 rounded-full"></div>
+                                <span>Live updates enabled</span>
+                              </div>
+                              {['pending', 'preparing'].includes(order.status) && (
+                                <button
+                                  className="ml-4 px-3 py-1 bg-red-100 text-red-700 rounded-lg text-xs sm:text-sm font-medium hover:bg-red-200 transition-colors border border-red-200"
+                                  onClick={async () => {
+                                    if (!window.confirm('Are you sure you want to cancel this order?')) return;
+                                    try {
+                                      const response = await fetch(`/api/orders/${order.id}`, {
+                                        method: 'PUT',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ status: 'cancelled', cancelledBy: 'customer' })
+                                      });
+                                      if (response.ok) {
+                                        fetchOrders(user.id);
+                                      } else {
+                                        alert('Failed to cancel order.');
+                                      }
+                                    } catch (err) {
+                                      alert('Failed to cancel order.');
+                                    }
+                                  }}
+                                >
+                                  Cancel Order
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
