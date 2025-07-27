@@ -15,6 +15,7 @@ import MenuItemModal from '@/components/staff/MenuItemModal';
 import IngredientModal from '@/components/staff/IngredientModal';
 import SetMenuList from '@/components/staff/SetMenuList';
 import SetMenuModal from '@/components/staff/SetMenuModal';
+import RefundModal from '@/components/staff/RefundModal';
 
 export default function StaffPage() {
   const [user, setUser] = useState(null);
@@ -34,6 +35,8 @@ export default function StaffPage() {
   const [setMenus, setSetMenus] = useState([]);
   const [showSetMenuModal, setShowSetMenuModal] = useState(false);
   const [editingSetMenu, setEditingSetMenu] = useState(null);
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [selectedOrderForRefund, setSelectedOrderForRefund] = useState(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -124,7 +127,7 @@ export default function StaffPage() {
 
   const updateOrderStatus = async (orderId, status) => {
     try {
-      const response = await fetch(`/api/orders/${orderId}`, {
+      const response = await fetch(`/api/orders/${orderId}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status })
@@ -136,6 +139,20 @@ export default function StaffPage() {
     } catch (error) {
       console.error('Error updating order status:', error);
     }
+  };
+
+  const handleRefundClick = (order) => {
+    setSelectedOrderForRefund(order);
+    setShowRefundModal(true);
+  };
+
+  const handleRefundProcessed = (updatedOrder) => {
+    // Update the order in the local state
+    setOrders(prevOrders => 
+      prevOrders.map(order => 
+        order.id === updatedOrder.id ? updatedOrder : order
+      )
+    );
   };
 
   const handleAddItem = async (e) => {
@@ -481,6 +498,7 @@ export default function StaffPage() {
                   searchQuery={searchQuery}
                   onSearch={setSearchQuery}
                   onUpdateStatus={updateOrderStatus}
+                  onRefundClick={handleRefundClick}
                 />
               </>
             )}
@@ -568,6 +586,12 @@ export default function StaffPage() {
           </div>
         </div>
       </div>
+      <RefundModal
+        order={selectedOrderForRefund}
+        isOpen={showRefundModal}
+        onClose={() => { setShowRefundModal(false); setSelectedOrderForRefund(null); }}
+        onRefundProcessed={handleRefundProcessed}
+      />
     </div>
   );
 } 

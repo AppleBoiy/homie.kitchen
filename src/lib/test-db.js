@@ -91,6 +91,10 @@ const createTestDatabase = () => {
         customer_id INTEGER NOT NULL,
         total_amount REAL NOT NULL,
         status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'preparing', 'ready', 'completed', 'cancelled')),
+        refund_status TEXT DEFAULT 'none',
+        refund_amount REAL DEFAULT 0,
+        refund_reason TEXT,
+        refunded_at TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (customer_id) REFERENCES users (id)
       )

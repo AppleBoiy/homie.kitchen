@@ -1,7 +1,7 @@
 import OrderCard from '@/components/staff/OrderCard';
 import SearchBar from '@/components/common/SearchBar';
 
-export default function OrderList({ orders, searchQuery, onSearch, onUpdateStatus }) {
+export default function OrderList({ orders, searchQuery, onSearch, onUpdateStatus, onRefundClick }) {
   return (
     <div className="space-y-3 sm:space-y-4">
       <div className="mb-4">
@@ -21,7 +21,12 @@ export default function OrderList({ orders, searchQuery, onSearch, onUpdateStatu
         <div className="overflow-x-auto">
           <div className="space-y-3 min-w-[320px]">
             {(Array.isArray(orders) ? orders : []).map(order => (
-              <OrderCard key={order.id} order={order} onUpdateStatus={onUpdateStatus} />
+              <OrderCard 
+                key={order.id} 
+                order={order} 
+                onUpdateStatus={onUpdateStatus} 
+                onRefundClick={onRefundClick}
+              />
             ))}
           </div>
         </div>

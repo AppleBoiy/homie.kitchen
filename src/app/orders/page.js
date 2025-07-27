@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChefHat, ArrowLeft, Clock, CheckCircle, XCircle, Package, Truck, RefreshCw, Search } from 'lucide-react';
+import { ChefHat, ArrowLeft, Clock, CheckCircle, XCircle, Package, Truck, RefreshCw, Search, RotateCcw } from 'lucide-react';
 import { safeIncludes } from '@/lib/utils';
+import RefundModal from '@/components/staff/RefundModal';
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState([]);
@@ -11,6 +12,8 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [selectedOrderForRefund, setSelectedOrderForRefund] = useState(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -113,6 +116,20 @@ export default function OrdersPage() {
     
     const diffInDays = Math.floor(diffInHours / 24);
     return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
+  };
+
+  const handleRefundRequest = (order) => {
+    setSelectedOrderForRefund(order);
+    setShowRefundModal(true);
+  };
+
+  const handleRefundProcessed = (updatedOrder) => {
+    // Update the order in the local state
+    setOrders(prevOrders => 
+      prevOrders.map(order => 
+        order.id === updatedOrder.id ? updatedOrder : order
+      )
+    );
   };
 
   // Filter orders based on search query
@@ -281,6 +298,36 @@ export default function OrdersPage() {
                         </div>
                       </div>
 
+                      {/* Refund Information */}
+                      {order.refund_status === 'refunded' && (
+                        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <RotateCcw className="w-4 h-4 text-red-600" />
+                            <span className="text-sm font-medium text-red-800">Refund Processed</span>
+                          </div>
+                          <div className="text-xs text-red-700 space-y-1">
+                            <p><span className="font-medium">Amount:</span> ${order.refund_amount.toFixed(2)}</p>
+                            <p><span className="font-medium">Reason:</span> {order.refund_reason}</p>
+                            <p><span className="font-medium">Date:</span> {new Date(order.refunded_at).toLocaleString()}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Refund Request Information */}
+                      {order.refund_status === 'requested' && (
+                        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <RotateCcw className="w-4 h-4 text-yellow-600" />
+                            <span className="text-sm font-medium text-yellow-800">Refund Requested</span>
+                          </div>
+                          <div className="text-xs text-yellow-700 space-y-1">
+                            <p><span className="font-medium">Reason:</span> {order.refund_reason}</p>
+                            <p><span className="font-medium">Requested:</span> {new Date(order.refunded_at).toLocaleString()}</p>
+                            <p><span className="font-medium">Status:</span> <span className="text-yellow-600">Pending staff review</span></p>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Order Progress Bar */}
                       {isActive && (
                         <div className="mb-4 sm:mb-6">
@@ -316,11 +363,13 @@ export default function OrdersPage() {
                         {(() => {
                           // Group items by set_menu_id
                           const groups = {};
-                          order.items.forEach(item => {
-                            const key = item.set_menu_id || 'single';
-                            if (!groups[key]) groups[key] = [];
-                            groups[key].push(item);
-                          });
+                          if (order.items && Array.isArray(order.items)) {
+                            order.items.forEach(item => {
+                              const key = item.set_menu_id || 'single';
+                              if (!groups[key]) groups[key] = [];
+                              groups[key].push(item);
+                            });
+                          }
                           return Object.entries(groups).map(([set_menu_id, items], idx) => {
                             if (set_menu_id !== 'single') {
                               // Set menu group
@@ -397,6 +446,13 @@ export default function OrdersPage() {
                         })()}
                       </div>
 
+                      {/* Fallback message when no items */}
+                      {(!order.items || !Array.isArray(order.items) || order.items.length === 0) && (
+                        <div className="text-center py-4 text-gray-500 text-sm">
+                          No items found for this order.
+                        </div>
+                      )}
+
                       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0 pt-4 border-t border-gray-200">
                         <span className="text-base sm:text-lg font-bold text-gray-800">
                           Total: ${order.total_amount.toFixed(2)}
@@ -414,10 +470,10 @@ export default function OrdersPage() {
                                   onClick={async () => {
                                     if (!window.confirm('Are you sure you want to cancel this order?')) return;
                                     try {
-                                      const response = await fetch(`/api/orders/${order.id}`, {
+                                      const response = await fetch(`/api/orders/${order.id}/status`, {
                                         method: 'PUT',
                                         headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ status: 'cancelled', cancelledBy: 'customer' })
+                                        body: JSON.stringify({ status: 'cancelled' })
                                       });
                                       if (response.ok) {
                                         fetchOrders(user.id);
@@ -434,6 +490,17 @@ export default function OrdersPage() {
                               )}
                             </>
                           )}
+                          
+                          {/* Refund Request Button - Show for completed orders that haven't been refunded */}
+                          {order.status === 'completed' && order.refund_status === 'none' && (
+                            <button
+                              onClick={() => handleRefundRequest(order)}
+                              className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-lg text-xs sm:text-sm font-medium hover:bg-yellow-200 transition-colors border border-yellow-200 flex items-center space-x-1"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              <span>Request Refund</span>
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -444,6 +511,15 @@ export default function OrdersPage() {
           </div>
         )}
       </div>
+      
+      {/* Refund Request Modal */}
+      <RefundModal
+        order={selectedOrderForRefund}
+        isOpen={showRefundModal}
+        onClose={() => { setShowRefundModal(false); setSelectedOrderForRefund(null); }}
+        onRefundProcessed={handleRefundProcessed}
+        mode="request"
+      />
     </div>
   );
 } 

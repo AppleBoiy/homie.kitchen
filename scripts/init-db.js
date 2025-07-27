@@ -77,6 +77,10 @@ CREATE TABLE orders (
   customer_id INTEGER,
   total_amount REAL NOT NULL,
   status TEXT DEFAULT 'pending',
+  refund_status TEXT DEFAULT 'none',
+  refund_amount REAL DEFAULT 0,
+  refund_reason TEXT,
+  refunded_at TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY(customer_id) REFERENCES users(id)
 );
