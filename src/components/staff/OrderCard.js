@@ -21,7 +21,7 @@ export default function OrderCard({ order, onUpdateStatus }) {
           <p className="text-xs sm:text-sm text-gray-800">{order.customer_email}</p>
         </div>
         <div className="text-right">
-          <p className="font-semibold text-gray-900 text-sm sm:text-base">${order.total_amount}</p>
+          <p className="font-semibold text-gray-900 text-sm sm:text-base">${order.total_amount.toFixed(2)}</p>
           <span className={`inline-block min-w-[80px] text-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>{order.status}</span>
         </div>
       </div>

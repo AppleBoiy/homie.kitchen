@@ -24,7 +24,7 @@ export default function MenuItemCard({ item, category, onEdit, onDelete, onImage
         <div className="min-h-[90px] flex flex-col justify-start">
           <div className="flex justify-between items-start mb-2">
             <h3 className="font-semibold text-gray-800 text-sm sm:text-base line-clamp-2">{item.name || <span className='text-gray-400'>No name</span>}</h3>
-            <span className="text-orange-600 font-bold text-sm sm:text-base ml-2">${item.price}</span>
+            <span className="text-orange-600 font-bold text-sm sm:text-base ml-2">${item.price.toFixed(2)}</span>
           </div>
           <p className="text-gray-600 text-xs sm:text-sm mb-3 line-clamp-2">{item.description || <span className='text-gray-400'>No description</span>}</p>
           <p className="text-gray-500 text-xs mb-3">Category: {category?.name || 'Unknown'}</p>

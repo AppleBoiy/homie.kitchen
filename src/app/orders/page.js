@@ -320,7 +320,7 @@ export default function OrdersPage() {
                             </div>
                             <div className="text-right">
                               <p className="font-medium text-gray-800 text-sm sm:text-base">
-                                {item.quantity} × ${item.price}
+                                {item.quantity} × ${item.price.toFixed(2)}
                               </p>
                               <p className="text-gray-600 text-xs sm:text-sm">
                                 ${(item.quantity * item.price).toFixed(2)}
@@ -332,7 +332,7 @@ export default function OrdersPage() {
 
                       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0 pt-4 border-t border-gray-200">
                         <span className="text-base sm:text-lg font-bold text-gray-800">
-                          Total: ${order.total_amount}
+                          Total: ${order.total_amount.toFixed(2)}
                         </span>
                         <div className="flex items-center space-x-2">
                           {isActive && (
