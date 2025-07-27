@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CopilotDiffPersistence">
+    <option name="pendingDiffs">
+      <map>
+        <entry key="$PROJECT_DIR$/src/app/globals.css">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="$PROJECT_DIR$/src/app/globals.css" />
+              <option name="originalContent" value="@import &quot;tailwindcss&quot;;&#10;&#10;:root {&#10;  --background: #ffffff;&#10;  --foreground: #171717;&#10;}&#10;&#10;@theme inline {&#10;  --color-background: var(--background);&#10;  --color-foreground: var(--foreground);&#10;  --font-sans: var(--font-geist-sans);&#10;  --font-mono: var(--font-geist-mono);&#10;}&#10;&#10;@media (prefers-color-scheme: dark) {&#10;  :root {&#10;    --background: #0a0a0a;&#10;    --foreground: #ededed;&#10;  }&#10;}&#10;&#10;body {&#10;  background: var(--background);&#10;  color: var(--foreground);&#10;  font-family: Arial, Helvetica, sans-serif;&#10;}&#10;" />
+              <option name="updatedContent" value="@import &quot;tailwindcss&quot;;&#10;&#10;:root {&#10;  --background: #ffffff;&#10;  --foreground: #171717;&#10;}&#10;&#10;@theme inline {&#10;  --color-background: var(--background);&#10;  --color-foreground: var(--foreground);&#10;  --font-sans: var(--font-geist-sans);&#10;  --font-mono: var(--font-geist-mono);&#10;}&#10;&#10;@media (prefers-color-scheme: dark) {&#10;  :root {&#10;    --background: #0a0a0a;&#10;    --foreground: #ededed;&#10;  }&#10;}&#10;&#10;body {&#10;  background: var(--background);&#10;  color: var(--foreground);&#10;  font-family: Arial, Helvetica, sans-serif;&#10;}&#10;&#10;input, textarea {&#10;  color: #171717;&#10;}" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>

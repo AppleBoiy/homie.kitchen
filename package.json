@@ -11,7 +11,14 @@
   "dependencies": {
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "next": "15.4.4"
+    "next": "15.4.4",
+    "next-auth": "^4.24.5",
+    "bcryptjs": "^2.4.3",
+    "sqlite3": "^5.1.6",
+    "better-sqlite3": "^9.4.3",
+    "lucide-react": "^0.400.0",
+    "clsx": "^2.0.0",
+    "tailwind-merge": "^2.2.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
