@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChefHat, ShoppingCart, Plus, Minus, ArrowLeft, Clock, CheckCircle, Image as ImageIcon, Bell, X, Package, Truck, Menu } from 'lucide-react';
+import { ChefHat, ShoppingCart, Plus, Minus, ArrowLeft, Clock, CheckCircle, Image as ImageIcon, Bell, X, Package, Truck, Menu, Search } from 'lucide-react';
 import Image from 'next/image';
-import { getImageUrl } from '@/lib/utils';
+import { getImageUrl, safeIncludes } from '@/lib/utils';
 
 export default function MenuPage() {
   const [menuItems, setMenuItems] = useState([]);
@@ -20,6 +20,7 @@ export default function MenuPage() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [lastOrderId, setLastOrderId] = useState(null);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const router = useRouter();
 
   useEffect(() => {
@@ -225,9 +226,15 @@ export default function MenuPage() {
     setImageErrors(prev => new Set(prev).add(itemId));
   };
 
-  const filteredItems = selectedCategory === 'all' 
-    ? menuItems 
-    : menuItems.filter(item => item.category_id === parseInt(selectedCategory));
+  // Filter items based on category and search query
+  const filteredItems = menuItems.filter(item => {
+    const matchesCategory = selectedCategory === 'all' || item.category_id === parseInt(selectedCategory);
+    const matchesSearch = searchQuery === '' || 
+      safeIncludes(item.name, searchQuery) ||
+      (item.description && safeIncludes(item.description, searchQuery));
+    
+    return matchesCategory && matchesSearch;
+  });
 
   if (loading) {
     return (
@@ -417,6 +424,28 @@ export default function MenuPage() {
       )}
 
       <div className="container mx-auto px-4 py-4 sm:py-6">
+        {/* Search Bar */}
+        <div className="mb-4 sm:mb-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
+            <input
+              type="text"
+              placeholder="Search menu items..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm sm:text-base"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Categories */}
         <div className="mb-4 sm:mb-6">
           <h2 className="text-base sm:text-lg font-semibold text-gray-800 mb-2 sm:mb-3">Categories</h2>
@@ -447,47 +476,77 @@ export default function MenuPage() {
           </div>
         </div>
 
+        {/* Search Results Info */}
+        {searchQuery && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              Showing {filteredItems.length} result{filteredItems.length !== 1 ? 's' : ''} for "{searchQuery}"
+            </p>
+          </div>
+        )}
+
         {/* Menu Items */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 mb-20 sm:mb-24">
-          {filteredItems.map(item => {
-            const imageUrl = getImageUrl(item.image_url);
-            const hasImageError = imageErrors.has(item.id);
-            
-            return (
-              <div key={item.id} className="bg-white rounded-lg shadow-sm border overflow-hidden hover:shadow-md transition-shadow">
-                <div className="h-40 sm:h-48 bg-gray-200 flex items-center justify-center relative">
-                  {imageUrl && !hasImageError ? (
-                    <Image
-                      src={imageUrl}
-                      alt={item.name}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                      onError={() => handleImageError(item.id)}
-                      unoptimized={imageUrl.startsWith('http')}
-                    />
-                  ) : (
-                    <ImageIcon className="w-8 h-8 sm:w-12 sm:h-12 text-gray-400" />
-                  )}
-                </div>
-                <div className="p-3 sm:p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-semibold text-gray-800 text-sm sm:text-base line-clamp-2">{item.name}</h3>
-                    <span className="text-orange-600 font-bold text-sm sm:text-base ml-2">${item.price}</span>
+          {filteredItems.length === 0 ? (
+            <div className="col-span-full text-center py-12">
+              <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">No items found</h3>
+              <p className="text-gray-600 mb-4">
+                {searchQuery 
+                  ? `No menu items match "${searchQuery}"`
+                  : 'No items available in this category'
+                }
+              </p>
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="text-orange-600 hover:text-orange-700 text-sm font-medium"
+                >
+                  Clear search
+                </button>
+              )}
+            </div>
+          ) : (
+            filteredItems.map(item => {
+              const imageUrl = getImageUrl(item.image_url);
+              const hasImageError = imageErrors.has(item.id);
+              
+              return (
+                <div key={item.id} className="bg-white rounded-lg shadow-sm border overflow-hidden hover:shadow-md transition-shadow">
+                  <div className="h-40 sm:h-48 bg-gray-200 flex items-center justify-center relative">
+                    {imageUrl && !hasImageError ? (
+                      <Image
+                        src={imageUrl}
+                        alt={item.name}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                        onError={() => handleImageError(item.id)}
+                        unoptimized={imageUrl.startsWith('http')}
+                      />
+                    ) : (
+                      <ImageIcon className="w-8 h-8 sm:w-12 sm:h-12 text-gray-400" />
+                    )}
                   </div>
-                  <p className="text-gray-600 text-xs sm:text-sm mb-3 line-clamp-2">{item.description}</p>
-                  <div className="flex justify-end">
-                    <button
-                      onClick={() => addToCart(item)}
-                      className="bg-orange-600 text-white px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm hover:bg-orange-700 transition-colors w-full sm:w-auto"
-                    >
-                      Add to Cart
-                    </button>
+                  <div className="p-3 sm:p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="font-semibold text-gray-800 text-sm sm:text-base line-clamp-2">{item.name}</h3>
+                      <span className="text-orange-600 font-bold text-sm sm:text-base ml-2">${item.price}</span>
+                    </div>
+                    <p className="text-gray-600 text-xs sm:text-sm mb-3 line-clamp-2">{item.description}</p>
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => addToCart(item)}
+                        className="bg-orange-600 text-white px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm hover:bg-orange-700 transition-colors w-full sm:w-auto"
+                      >
+                        Add to Cart
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </div>
 

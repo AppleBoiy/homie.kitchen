@@ -8,16 +8,37 @@ export function cn(...inputs) {
 export function getImageUrl(imageUrl) {
   if (!imageUrl) return null;
   
-  // If it's already a full URL (starts with http/https), return as is
+  // If it's already a full URL, return as is
   if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
     return imageUrl;
   }
   
-  // If it's a local path (starts with /), return as is for Next.js Image component
+  // If it's a relative path, make it absolute
   if (imageUrl.startsWith('/')) {
     return imageUrl;
   }
   
-  // If it's just a filename, assume it's in the public/images folder
+  // Otherwise, assume it's a relative path and add the base path
   return `/images/${imageUrl}`;
+}
+
+/**
+ * Safely converts a value to lowercase string for search operations
+ * @param {any} value - The value to convert
+ * @returns {string} - Lowercase string or empty string if value is null/undefined
+ */
+export function safeToLowerCase(value) {
+  if (value == null) return '';
+  return String(value).toLowerCase();
+}
+
+/**
+ * Safely checks if a string includes a substring
+ * @param {any} value - The value to check
+ * @param {string} query - The search query
+ * @returns {boolean} - True if value includes query, false otherwise
+ */
+export function safeIncludes(value, query) {
+  if (value == null || query == null) return false;
+  return safeToLowerCase(value).includes(safeToLowerCase(query));
 } 

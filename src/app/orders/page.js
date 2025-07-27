@@ -2,13 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChefHat, ArrowLeft, Clock, CheckCircle, XCircle, Package, Truck, RefreshCw } from 'lucide-react';
+import { ChefHat, ArrowLeft, Clock, CheckCircle, XCircle, Package, Truck, RefreshCw, Search } from 'lucide-react';
+import { safeIncludes } from '@/lib/utils';
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState([]);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const router = useRouter();
 
   useEffect(() => {
@@ -112,6 +114,30 @@ export default function OrdersPage() {
     return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
   };
 
+  // Filter orders based on search query
+  const filteredOrders = orders.filter(order => {
+    if (!searchQuery) return true;
+    
+    const query = searchQuery.toLowerCase();
+    
+    // Search by order ID
+    if (safeIncludes(order.id.toString(), query)) return true;
+    
+    // Search by status
+    if (safeIncludes(order.status, query)) return true;
+    
+    // Search by item names
+    if (order.items && order.items.some(item => 
+      safeIncludes(item.item_name, query) ||
+      (item.item_description && safeIncludes(item.item_description, query))
+    )) return true;
+    
+    // Search by total amount
+    if (safeIncludes(order.total_amount.toString(), query)) return true;
+    
+    return false;
+  });
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -176,100 +202,150 @@ export default function OrdersPage() {
                 {orders.filter(o => ['pending', 'preparing', 'ready'].includes(o.status)).length} active orders
               </div>
             </div>
+
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
+              <input
+                type="text"
+                placeholder="Search orders by ID, status, or items..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm sm:text-base"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <XCircle className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Search Results Info */}
+            {searchQuery && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  Showing {filteredOrders.length} result{filteredOrders.length !== 1 ? 's' : ''} for "{searchQuery}"
+                </p>
+              </div>
+            )}
             
-            {orders.map(order => {
-              const isActive = ['pending', 'preparing', 'ready'].includes(order.status);
-              const progressSteps = getOrderProgress(order.status);
-              
-              return (
-                <div key={order.id} className={`bg-white rounded-lg shadow-sm border ${isActive ? 'ring-2 ring-blue-200' : ''}`}>
-                  <div className="p-4 sm:p-6">
-                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-0 mb-4">
-                      <div>
-                        <h3 className="text-base sm:text-lg font-semibold text-gray-800">
-                          Order #{order.id}
-                        </h3>
-                        <p className="text-gray-600 text-sm">
-                          {new Date(order.created_at).toLocaleDateString()} at{' '}
-                          {new Date(order.created_at).toLocaleTimeString()}
-                        </p>
-                        <p className="text-gray-500 text-xs mt-1">
-                          {formatTimeAgo(order.created_at)}
-                        </p>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        {getStatusIcon(order.status)}
-                        <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${getStatusColor(order.status)}`}>
-                          {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Order Progress Bar */}
-                    {isActive && (
-                      <div className="mb-4 sm:mb-6">
-                        <div className="flex items-center justify-between mb-2">
-                          {progressSteps.map((step, index) => (
-                            <div key={step.key} className="flex items-center">
-                              <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium ${
-                                step.completed 
-                                  ? 'bg-green-500 text-white' 
-                                  : 'bg-gray-200 text-gray-600'
-                              }`}>
-                                {step.completed ? '✓' : index + 1}
-                              </div>
-                              {index < progressSteps.length - 1 && (
-                                <div className={`w-8 sm:w-12 h-1 mx-1 sm:mx-2 ${
-                                  step.completed ? 'bg-green-500' : 'bg-gray-200'
-                                }`} />
-                              )}
-                            </div>
-                          ))}
+            {filteredOrders.length === 0 ? (
+              <div className="text-center py-12">
+                <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">No orders found</h3>
+                <p className="text-gray-600 mb-4">
+                  {searchQuery 
+                    ? `No orders match "${searchQuery}"`
+                    : 'No orders available'
+                  }
+                </p>
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="text-orange-600 hover:text-orange-700 text-sm font-medium"
+                  >
+                    Clear search
+                  </button>
+                )}
+              </div>
+            ) : (
+              filteredOrders.map(order => {
+                const isActive = ['pending', 'preparing', 'ready'].includes(order.status);
+                const progressSteps = getOrderProgress(order.status);
+                
+                return (
+                  <div key={order.id} className={`bg-white rounded-lg shadow-sm border ${isActive ? 'ring-2 ring-blue-200' : ''}`}>
+                    <div className="p-4 sm:p-6">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-0 mb-4">
+                        <div>
+                          <h3 className="text-base sm:text-lg font-semibold text-gray-800">
+                            Order #{order.id}
+                          </h3>
+                          <p className="text-gray-600 text-sm">
+                            {new Date(order.created_at).toLocaleDateString()} at{' '}
+                            {new Date(order.created_at).toLocaleTimeString()}
+                          </p>
+                          <p className="text-gray-500 text-xs mt-1">
+                            {formatTimeAgo(order.created_at)}
+                          </p>
                         </div>
-                        <div className="flex justify-between text-xs text-gray-500">
-                          {progressSteps.map(step => (
-                            <span key={step.key} className="text-center">
-                              {step.label}
-                            </span>
-                          ))}
+                        <div className="flex items-center space-x-2">
+                          {getStatusIcon(order.status)}
+                          <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${getStatusColor(order.status)}`}>
+                            {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                          </span>
                         </div>
                       </div>
-                    )}
 
-                    <div className="space-y-2 sm:space-y-3 mb-4">
-                      {order.items.map(item => (
-                        <div key={item.id} className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b border-gray-100 last:border-b-0 gap-2 sm:gap-0">
-                          <div className="flex-1">
-                            <p className="font-medium text-gray-800 text-sm sm:text-base">{item.item_name}</p>
-                            <p className="text-gray-600 text-xs sm:text-sm">{item.item_description}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-medium text-gray-800 text-sm sm:text-base">
-                              {item.quantity} × ${item.price}
-                            </p>
-                            <p className="text-gray-600 text-xs sm:text-sm">
-                              ${(item.quantity * item.price).toFixed(2)}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0 pt-4 border-t border-gray-200">
-                      <span className="text-base sm:text-lg font-bold text-gray-800">
-                        Total: ${order.total_amount}
-                      </span>
+                      {/* Order Progress Bar */}
                       {isActive && (
-                        <div className="flex items-center space-x-2 text-blue-600 text-xs sm:text-sm">
-                          <div className="animate-pulse w-2 h-2 bg-blue-600 rounded-full"></div>
-                          <span>Live updates enabled</span>
+                        <div className="mb-4 sm:mb-6">
+                          <div className="flex items-center justify-between mb-2">
+                            {progressSteps.map((step, index) => (
+                              <div key={step.key} className="flex items-center">
+                                <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium ${
+                                  step.completed 
+                                    ? 'bg-green-500 text-white' 
+                                    : 'bg-gray-200 text-gray-600'
+                                }`}>
+                                  {step.completed ? '✓' : index + 1}
+                                </div>
+                                {index < progressSteps.length - 1 && (
+                                  <div className={`w-8 sm:w-12 h-1 mx-1 sm:mx-2 ${
+                                    step.completed ? 'bg-green-500' : 'bg-gray-200'
+                                  }`} />
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex justify-between text-xs text-gray-500">
+                            {progressSteps.map(step => (
+                              <span key={step.key} className="text-center">
+                                {step.label}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       )}
+
+                      <div className="space-y-2 sm:space-y-3 mb-4">
+                        {order.items.map(item => (
+                          <div key={item.id} className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b border-gray-100 last:border-b-0 gap-2 sm:gap-0">
+                            <div className="flex-1">
+                              <p className="font-medium text-gray-800 text-sm sm:text-base">{item.item_name}</p>
+                              <p className="text-gray-600 text-xs sm:text-sm">{item.item_description}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-medium text-gray-800 text-sm sm:text-base">
+                                {item.quantity} × ${item.price}
+                              </p>
+                              <p className="text-gray-600 text-xs sm:text-sm">
+                                ${(item.quantity * item.price).toFixed(2)}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0 pt-4 border-t border-gray-200">
+                        <span className="text-base sm:text-lg font-bold text-gray-800">
+                          Total: ${order.total_amount}
+                        </span>
+                        {isActive && (
+                          <div className="flex items-center space-x-2 text-blue-600 text-xs sm:text-sm">
+                            <div className="animate-pulse w-2 h-2 bg-blue-600 rounded-full"></div>
+                            <span>Live updates enabled</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         )}
       </div>
