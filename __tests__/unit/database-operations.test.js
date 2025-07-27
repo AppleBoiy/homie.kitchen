@@ -16,10 +16,10 @@ describe('Database Operations Unit Tests', () => {
     // Clear test data before each test (handle foreign key constraints)
     db.prepare('DELETE FROM order_items').run();
     db.prepare('DELETE FROM orders').run();
-    db.prepare('DELETE FROM menu_items WHERE name LIKE ?').run('Test%');
+    db.prepare('DELETE FROM menu_items').run(); // Delete all menu items first
     db.prepare('DELETE FROM ingredients WHERE name LIKE ?').run('Test%');
-    db.prepare('DELETE FROM categories WHERE name LIKE ?').run('Test%');
     db.prepare('DELETE FROM users WHERE email LIKE ?').run('test%');
+    db.prepare('DELETE FROM categories WHERE name LIKE ?').run('Test%');
     
     // Re-insert test data
     const insertCategory = db.prepare('INSERT INTO categories (name, description) VALUES (?, ?)');

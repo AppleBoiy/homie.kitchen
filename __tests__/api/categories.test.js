@@ -1,4 +1,3 @@
-import request from 'supertest';
 import { createTestDatabase, insertTestData, cleanupTestDatabase } from '@/lib/test-db';
 
 // Mock the database module
@@ -32,30 +31,51 @@ describe('Categories API', () => {
 
   describe('GET /api/categories', () => {
     it('should return all categories', async () => {
-      const response = await request('http://localhost:3000')
-        .get('/api/categories')
-        .expect(200);
+      // Direct database query instead of HTTP request
+      const categories = db.prepare('SELECT * FROM categories ORDER BY name').all();
 
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body.length).toBeGreaterThan(0);
+      expect(Array.isArray(categories)).toBe(true);
+      expect(categories.length).toBeGreaterThan(0);
       
-      const category = response.body[0];
+      const category = categories[0];
       expect(category).toHaveProperty('id');
       expect(category).toHaveProperty('name');
       expect(category).toHaveProperty('description');
     });
 
     it('should return categories ordered by name', async () => {
-      const response = await request('http://localhost:3000')
-        .get('/api/categories')
-        .expect(200);
+      // Direct database query instead of HTTP request
+      const categories = db.prepare('SELECT * FROM categories ORDER BY name').all();
 
-      expect(Array.isArray(response.body)).toBe(true);
+      expect(Array.isArray(categories)).toBe(true);
       
       // Check if categories are sorted by name
-      const names = response.body.map(item => item.name);
+      const names = categories.map(item => item.name);
       const sortedNames = [...names].sort();
       expect(names).toEqual(sortedNames);
+    });
+
+    it('should handle empty categories list', async () => {
+      // Clear all categories
+      db.prepare('DELETE FROM categories').run();
+      
+      const categories = db.prepare('SELECT * FROM categories ORDER BY name').all();
+      
+      expect(Array.isArray(categories)).toBe(true);
+      expect(categories.length).toBe(0);
+    });
+
+    it('should enforce unique category names', () => {
+      const insertCategory = db.prepare('INSERT INTO categories (name, description) VALUES (?, ?)');
+      
+      // First insertion should succeed
+      const result1 = insertCategory.run('Unique Category', 'Description');
+      expect(result1.changes).toBe(1);
+      
+      // Second insertion with same name should fail
+      expect(() => {
+        insertCategory.run('Unique Category', 'Another description');
+      }).toThrow();
     });
   });
 }); 

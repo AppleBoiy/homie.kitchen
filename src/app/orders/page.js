@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChefHat, ArrowLeft, Clock, CheckCircle, XCircle, Package } from 'lucide-react';
+import { ChefHat, ArrowLeft, Clock, CheckCircle, XCircle, Package, Truck, RefreshCw } from 'lucide-react';
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState([]);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -23,6 +24,7 @@ export default function OrdersPage() {
 
   const fetchOrders = async (customerId) => {
     try {
+      setRefreshing(true);
       const response = await fetch(`/api/orders?customerId=${customerId}&role=customer`);
       const data = await response.json();
       setOrders(data);
@@ -30,8 +32,26 @@ export default function OrdersPage() {
       console.error('Error fetching orders:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
+
+  // Set up real-time updates for active orders
+  useEffect(() => {
+    if (!user) return;
+
+    const activeOrders = orders.filter(order => 
+      ['pending', 'preparing', 'ready'].includes(order.status)
+    );
+
+    if (activeOrders.length > 0) {
+      const interval = setInterval(() => {
+        fetchOrders(user.id);
+      }, 10000); // Poll every 10 seconds for active orders
+
+      return () => clearInterval(interval);
+    }
+  }, [user, orders]);
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -40,7 +60,7 @@ export default function OrdersPage() {
       case 'preparing':
         return <Package className="w-4 h-4 text-blue-600" />;
       case 'ready':
-        return <CheckCircle className="w-4 h-4 text-green-600" />;
+        return <Truck className="w-4 h-4 text-green-600" />;
       case 'completed':
         return <CheckCircle className="w-4 h-4 text-green-600" />;
       case 'cancelled':
@@ -67,6 +87,31 @@ export default function OrdersPage() {
     }
   };
 
+  const getOrderProgress = (status) => {
+    const steps = [
+      { key: 'pending', label: 'Order Received', completed: true },
+      { key: 'preparing', label: 'Preparing', completed: ['preparing', 'ready', 'completed'].includes(status) },
+      { key: 'ready', label: 'Ready', completed: ['ready', 'completed'].includes(status) },
+      { key: 'completed', label: 'Completed', completed: status === 'completed' }
+    ];
+    return steps;
+  };
+
+  const formatTimeAgo = (timestamp) => {
+    const now = new Date();
+    const orderTime = new Date(timestamp);
+    const diffInMinutes = Math.floor((now - orderTime) / (1000 * 60));
+    
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes} minute${diffInMinutes > 1 ? 's' : ''} ago`;
+    
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -81,88 +126,150 @@ export default function OrdersPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="container mx-auto px-4 py-4">
+      <div className="bg-white shadow-sm border-b sticky top-0 z-30">
+        <div className="container mx-auto px-4 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <button
                 onClick={() => router.push('/menu')}
-                className="mr-4 p-2 hover:bg-gray-100 rounded-lg"
+                className="mr-2 sm:mr-4 p-2 hover:bg-gray-100 rounded-lg"
               >
-                <ArrowLeft className="w-5 h-5" />
+                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
               <div className="flex items-center">
-                <ChefHat className="w-8 h-8 text-orange-600 mr-2" />
-                <h1 className="text-xl font-bold text-gray-800">My Orders</h1>
+                <ChefHat className="w-6 h-6 sm:w-8 sm:h-8 text-orange-600 mr-2" />
+                <h1 className="text-lg sm:text-xl font-bold text-gray-800">My Orders</h1>
               </div>
             </div>
-            <span className="text-gray-600">Welcome, {user?.name}</span>
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <span className="text-gray-600 text-sm hidden sm:block">Welcome, {user?.name}</span>
+              <button
+                onClick={() => fetchOrders(user.id)}
+                disabled={refreshing}
+                className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50"
+              >
+                <RefreshCw className={`w-4 h-4 sm:w-5 sm:h-5 ${refreshing ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-6">
+      <div className="container mx-auto px-4 py-4 sm:py-6">
         {orders.length === 0 ? (
-          <div className="text-center py-12">
-            <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-gray-800 mb-2">No Orders Yet</h2>
-            <p className="text-gray-600 mb-6">Start ordering delicious food from our menu!</p>
+          <div className="text-center py-8 sm:py-12">
+            <Package className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-4" />
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">No Orders Yet</h2>
+            <p className="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">Start ordering delicious food from our menu!</p>
             <button
               onClick={() => router.push('/menu')}
-              className="bg-orange-600 text-white px-6 py-2 rounded-lg hover:bg-orange-700"
+              className="bg-orange-600 text-white px-4 sm:px-6 py-2 rounded-lg hover:bg-orange-700 text-sm sm:text-base font-medium transition-colors"
             >
               Browse Menu
             </button>
           </div>
         ) : (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-800">Order History</h2>
-            {orders.map(order => (
-              <div key={order.id} className="bg-white rounded-lg shadow-sm border p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-800">
-                      Order #{order.id}
-                    </h3>
-                    <p className="text-gray-600 text-sm">
-                      {new Date(order.created_at).toLocaleDateString()} at{' '}
-                      {new Date(order.created_at).toLocaleTimeString()}
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {getStatusIcon(order.status)}
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                      {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-3 mb-4">
-                  {order.items.map(item => (
-                    <div key={item.id} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
+          <div className="space-y-4 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Order History</h2>
+              <div className="text-sm text-gray-600">
+                {orders.filter(o => ['pending', 'preparing', 'ready'].includes(o.status)).length} active orders
+              </div>
+            </div>
+            
+            {orders.map(order => {
+              const isActive = ['pending', 'preparing', 'ready'].includes(order.status);
+              const progressSteps = getOrderProgress(order.status);
+              
+              return (
+                <div key={order.id} className={`bg-white rounded-lg shadow-sm border ${isActive ? 'ring-2 ring-blue-200' : ''}`}>
+                  <div className="p-4 sm:p-6">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-0 mb-4">
                       <div>
-                        <p className="font-medium text-gray-800">{item.item_name}</p>
-                        <p className="text-sm text-gray-600">{item.item_description}</p>
+                        <h3 className="text-base sm:text-lg font-semibold text-gray-800">
+                          Order #{order.id}
+                        </h3>
+                        <p className="text-gray-600 text-sm">
+                          {new Date(order.created_at).toLocaleDateString()} at{' '}
+                          {new Date(order.created_at).toLocaleTimeString()}
+                        </p>
+                        <p className="text-gray-500 text-xs mt-1">
+                          {formatTimeAgo(order.created_at)}
+                        </p>
                       </div>
-                      <div className="text-right">
-                        <p className="font-medium text-gray-800">
-                          {item.quantity} × ${item.price}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          ${(item.quantity * item.price).toFixed(2)}
-                        </p>
+                      <div className="flex items-center space-x-2">
+                        {getStatusIcon(order.status)}
+                        <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${getStatusColor(order.status)}`}>
+                          {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                        </span>
                       </div>
                     </div>
-                  ))}
-                </div>
 
-                <div className="flex justify-between items-center pt-4 border-t border-gray-200">
-                  <span className="text-lg font-bold text-gray-800">
-                    Total: ${order.total_amount}
-                  </span>
+                    {/* Order Progress Bar */}
+                    {isActive && (
+                      <div className="mb-4 sm:mb-6">
+                        <div className="flex items-center justify-between mb-2">
+                          {progressSteps.map((step, index) => (
+                            <div key={step.key} className="flex items-center">
+                              <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium ${
+                                step.completed 
+                                  ? 'bg-green-500 text-white' 
+                                  : 'bg-gray-200 text-gray-600'
+                              }`}>
+                                {step.completed ? '✓' : index + 1}
+                              </div>
+                              {index < progressSteps.length - 1 && (
+                                <div className={`w-8 sm:w-12 h-1 mx-1 sm:mx-2 ${
+                                  step.completed ? 'bg-green-500' : 'bg-gray-200'
+                                }`} />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-500">
+                          {progressSteps.map(step => (
+                            <span key={step.key} className="text-center">
+                              {step.label}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-2 sm:space-y-3 mb-4">
+                      {order.items.map(item => (
+                        <div key={item.id} className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b border-gray-100 last:border-b-0 gap-2 sm:gap-0">
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-800 text-sm sm:text-base">{item.item_name}</p>
+                            <p className="text-gray-600 text-xs sm:text-sm">{item.item_description}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium text-gray-800 text-sm sm:text-base">
+                              {item.quantity} × ${item.price}
+                            </p>
+                            <p className="text-gray-600 text-xs sm:text-sm">
+                              ${(item.quantity * item.price).toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0 pt-4 border-t border-gray-200">
+                      <span className="text-base sm:text-lg font-bold text-gray-800">
+                        Total: ${order.total_amount}
+                      </span>
+                      {isActive && (
+                        <div className="flex items-center space-x-2 text-blue-600 text-xs sm:text-sm">
+                          <div className="animate-pulse w-2 h-2 bg-blue-600 rounded-full"></div>
+                          <span>Live updates enabled</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

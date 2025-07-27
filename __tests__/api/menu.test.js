@@ -1,4 +1,3 @@
-const request = require('supertest');
 const { createTestDatabase, insertTestData, cleanupTestDatabase } = require('../../src/lib/test-db');
 
 describe('Menu API', () => {
