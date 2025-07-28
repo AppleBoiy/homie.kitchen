@@ -16,7 +16,7 @@ A modern restaurant management system built with Next.js, featuring user authent
 ![Main Login Page](screenshots/main-page.png)
 
 ### Admin Dashboard
-![Admin Dashboard](screenshots/staff-dashboard.png)
+![Admin Dashboard](screenshots/admin-dashboard.png)
 
 ### Customer Menu
 ![Customer Menu](screenshots/customer-menu.png)
@@ -37,24 +37,6 @@ A modern restaurant management system built with Next.js, featuring user authent
 
 **Customer Account:**
 - Register a new account or use any email/password combination
-
-## Project Structure
-
-```
-homie.kitchen/
-├── src/
-│   ├── app/
-│   │   ├── api/           # API routes
-│   │   ├── menu/          # Customer menu page
-│   │   ├── orders/        # Order history page
-│   │   ├── admin/         # Admin dashboard
-│   │   └── page.js        # Main login page
-│   └── lib/
-│       ├── db.js          # Database configuration
-│       └── utils.js       # Utility functions
-├── public/                # Static assets
-└── restaurant.db          # SQLite database
-```
 
 ## API Documentation
 
