@@ -21,6 +21,9 @@ export async function GET(request) {
     if (role === 'customer' && customerId) {
       query += ' WHERE o.customer_id = ?';
       params.push(customerId);
+    } else if (role === 'staff') {
+      // Staff can see all orders but not process refunds
+      // No additional WHERE clause needed
     }
 
     query += ' ORDER BY o.created_at DESC';

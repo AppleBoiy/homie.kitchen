@@ -17,7 +17,7 @@ const createTestDatabase = () => {
         email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
         name TEXT NOT NULL,
-        role TEXT NOT NULL CHECK (role IN ('customer', 'admin')),
+        role TEXT NOT NULL CHECK (role IN ('customer', 'staff', 'admin')),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);

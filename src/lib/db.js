@@ -12,7 +12,7 @@ const initDatabase = () => {
       email TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
       name TEXT NOT NULL,
-      role TEXT NOT NULL CHECK (role IN ('customer', 'admin')),
+      role TEXT NOT NULL CHECK (role IN ('customer', 'staff', 'admin')),
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -124,6 +124,10 @@ const initDatabase = () => {
   const hashedPassword = bcrypt.hashSync('admin123', 10);
   const insertUser = db.prepare('INSERT OR IGNORE INTO users (email, password, name, role) VALUES (?, ?, ?, ?)');
   insertUser.run('admin@homie.kitchen', hashedPassword, 'Admin User', 'admin');
+
+  // Insert default staff user
+  const staffPassword = bcrypt.hashSync('staff123', 10);
+  insertUser.run('staff@homie.kitchen', staffPassword, 'Staff User', 'staff');
 
   // Insert sample ingredients
   const checkIngredient = db.prepare('SELECT id FROM ingredients WHERE name = ?');

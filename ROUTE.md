@@ -167,7 +167,7 @@ Get orders for the authenticated user.
 
 **Query Parameters:**
 - `customerId` (required for customers): Customer ID to get their orders
-- `role` (optional): Set to `admin` to get all orders (admin only)
+- `role` (optional): Set to `admin` or `staff` to get all orders (admin and staff only)
 
 **Response:**
 ```json
@@ -233,7 +233,7 @@ Create a new order.
 ```
 
 ### PUT `/orders/[id]/status`
-Update order status (admin only).
+Update order status (admin and staff).
 
 **Request Body:**
 ```json
@@ -378,7 +378,7 @@ Delete a set menu (admin only).
 ## Ingredients Endpoints
 
 ### GET `/ingredients`
-Get all ingredients (admin only).
+Get all ingredients (admin and staff).
 
 **Response:**
 ```json
@@ -418,7 +418,7 @@ Create a new ingredient (admin only).
 ```
 
 ### PUT `/ingredients/[id]`
-Update an existing ingredient (admin only).
+Update an existing ingredient (admin and staff).
 
 **Request Body:**
 ```json
@@ -696,6 +696,7 @@ Most endpoints require authentication. The system uses session-based authenticat
 ## Role-Based Access
 
 - **Admin**: Can access all endpoints and manage the entire system
+- **Staff**: Can view and update orders, update ingredient stock quantities, and view menu items. Cannot create/delete menu items, manage users, or process refunds
 - **Customer**: Can only access menu, orders (their own), profile, and authentication endpoints
 
 ## Default Login Credentials
@@ -703,6 +704,10 @@ Most endpoints require authentication. The system uses session-based authenticat
 ### Admin Account
 - **Email**: `admin@homie.kitchen`
 - **Password**: `admin123`
+
+### Staff Account
+- **Email**: `staff@homie.kitchen`
+- **Password**: `staff123`
 
 ### Customer Accounts
 - **Email**: `john@homie.kitchen`

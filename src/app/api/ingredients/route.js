@@ -18,6 +18,8 @@ export async function GET() {
   }
 }
 
+// Note: POST (create) is admin-only, staff cannot create new ingredients
+
 export async function POST(request) {
   try {
     const { name, description, stock_quantity, unit, min_stock_level } = await request.json();

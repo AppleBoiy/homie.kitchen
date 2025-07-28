@@ -50,6 +50,8 @@ export default function Home() {
       // Redirect based on role
       if (data.user.role === 'admin') {
         router.push('/admin');
+      } else if (data.user.role === 'staff') {
+        router.push('/staff');
       } else {
         router.push('/menu');
       }
@@ -96,6 +98,14 @@ export default function Home() {
                 >
                   <ChefHat className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                   Manage Restaurant
+                </button>
+              ) : user.role === 'staff' ? (
+                <button
+                  onClick={() => router.push('/staff')}
+                  className="w-full bg-orange-600 text-white py-2.5 sm:py-3 px-4 rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center text-sm sm:text-base font-medium"
+                >
+                  <ChefHat className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                  Staff Dashboard
                 </button>
               ) : (
                 <button

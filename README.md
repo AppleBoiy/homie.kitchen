@@ -35,6 +35,10 @@ A modern restaurant management system built with Next.js, featuring user authent
 - Email: `admin@homie.kitchen`
 - Password: `admin123`
 
+**Staff Account**
+- Email: `staff@homie.kitchen`
+- Password: `staff123`
+
 **Customer Account:**
 - Register a new account or use any email/password combination
 

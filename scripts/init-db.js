@@ -19,7 +19,7 @@ CREATE TABLE users (
   email TEXT NOT NULL UNIQUE,
   password TEXT NOT NULL,
   name TEXT NOT NULL,
-  role TEXT NOT NULL
+  role TEXT NOT NULL CHECK (role IN ('customer', 'staff', 'admin'))
 );
 `);
 
@@ -131,6 +131,11 @@ const bcrypt = require('bcryptjs');
 const adminPassword = bcrypt.hashSync('admin123', 10);
 db.prepare('INSERT OR IGNORE INTO users (email, password, name, role) VALUES (?, ?, ?, ?)')
   .run('admin@homie.kitchen', adminPassword, 'Admin', 'admin');
+
+// Insert sample staff account
+const staffPassword = bcrypt.hashSync('staff123', 10);
+db.prepare('INSERT OR IGNORE INTO users (email, password, name, role) VALUES (?, ?, ?, ?)')
+  .run('staff@homie.kitchen', staffPassword, 'Staff User', 'staff');
 
 // Insert sample customer accounts
 const customerPassword = bcrypt.hashSync('customer123', 10);
