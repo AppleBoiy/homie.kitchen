@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import db from '@/lib/db';
+import dbAdapter from '@/lib/db';
 
 export async function POST(request) {
   try {
@@ -14,7 +14,8 @@ export async function POST(request) {
     }
 
     // Check if user already exists
-    const existingUser = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+    const existingUserStmt = await dbAdapter.prepare('SELECT id FROM users WHERE email = ?');
+    const existingUser = await existingUserStmt.get(email);
     if (existingUser) {
       return NextResponse.json(
         { error: 'User already exists' },
@@ -26,15 +27,18 @@ export async function POST(request) {
     const hashedPassword = bcrypt.hashSync(password, 10);
 
     // Insert new user
-    const insertUser = db.prepare(
+    const insertUser = await dbAdapter.prepare(
       'INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)'
     );
-    const result = insertUser.run(email, hashedPassword, name, 'customer');
+    const result = await insertUser.run(email, hashedPassword, name, 'customer');
 
+    // Get the inserted user ID
+    const userId = result.lastInsertRowid || result.lastID || (await dbAdapter.query('SELECT LASTVAL() as id'))[0].id;
+    
     return NextResponse.json(
       { 
         message: 'User registered successfully',
-        user: { id: result.lastInsertRowid, email, name, role: 'customer' }
+        user: { id: userId, email, name, role: 'customer' }
       },
       { status: 201 }
     );

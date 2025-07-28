@@ -13,14 +13,15 @@
     "test:all": "node __tests__/test-runner.js"
   },
   "dependencies": {
+    "@vercel/postgres": "^0.7.2",
     "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^9.4.3",
     "clsx": "^2.0.0",
     "lucide-react": "^0.400.0",
     "next": "15.4.4",
     "next-auth": "^4.24.5",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "sqlite": "^5.1.1",
     "sqlite3": "^5.1.6",
     "tailwind-merge": "^2.2.0"
   },

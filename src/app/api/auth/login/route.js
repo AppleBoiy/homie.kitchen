@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import db from '@/lib/db';
+import dbAdapter from '@/lib/db';
 
 export async function POST(request) {
   try {
@@ -14,7 +14,8 @@ export async function POST(request) {
     }
 
     // Find user by email
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    const stmt = await dbAdapter.prepare('SELECT * FROM users WHERE email = ?');
+    const user = await stmt.get(email);
     if (!user) {
       return NextResponse.json(
         { error: 'Invalid credentials' },

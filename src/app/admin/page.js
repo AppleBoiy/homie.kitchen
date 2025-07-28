@@ -342,14 +342,20 @@ export default function AdminPage() {
     }
   };
 
+  // Create safe arrays to prevent errors
+  const safeOrders = Array.isArray(orders) ? orders : [];
+  const safeIngredients = Array.isArray(ingredients) ? ingredients : [];
+  const menuItemsCount = menuItems.filter(item => item.type === 'menu').length;
+  const goodsItemsCount = menuItems.filter(item => item.type === 'goods').length;
+
   // Filter data based on active tab and search query
   const getFilteredData = () => {
     const query = searchQuery.toLowerCase();
     
     switch (activeTab) {
       case 'orders':
-        if (!searchQuery) return orders;
-        return orders.filter(order => 
+        if (!searchQuery) return safeOrders;
+        return safeOrders.filter(order => 
           safeIncludes(order.id.toString(), query) ||
           safeIncludes(order.customer_name, query) ||
           safeIncludes(order.customer_email, query) ||
@@ -381,8 +387,8 @@ export default function AdminPage() {
         );
       
       case 'ingredients':
-        if (!searchQuery) return ingredients;
-        return ingredients.filter(ingredient => 
+        if (!searchQuery) return safeIngredients;
+        return safeIngredients.filter(ingredient => 
           safeIncludes(ingredient.name, query) ||
           (ingredient.description && safeIncludes(ingredient.description, query)) ||
           safeIncludes(ingredient.stock_quantity.toString(), query) ||
@@ -396,17 +402,14 @@ export default function AdminPage() {
 
   const filteredData = getFilteredData();
 
-  const safeOrders = Array.isArray(orders) ? orders : [];
-  const menuItemsCount = menuItems.filter(item => item.type === 'menu').length;
-  const goodsItemsCount = menuItems.filter(item => item.type === 'goods').length;
   const stats = {
     totalOrders: safeOrders.length,
     pendingOrders: safeOrders.filter(o => o.status === 'pending').length,
     totalRevenue: safeOrders.reduce((sum, order) => sum + order.total_amount, 0),
     totalMenuItems: menuItemsCount,
     totalGoodsItems: goodsItemsCount,
-    totalIngredients: ingredients.length,
-    lowStockIngredients: ingredients.filter(i => i.stock_quantity <= i.min_stock_level).length
+    totalIngredients: safeIngredients.length,
+    lowStockIngredients: safeIngredients.filter(i => i.stock_quantity <= i.min_stock_level).length
   };
 
   if (loading) {
@@ -429,73 +432,137 @@ export default function AdminPage() {
         onOpenMobileStats={() => setMobileStatsOpen(true)}
         onUserManagement={() => router.push('/users')}
       />
-      <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-6">
+      <div className="container mx-auto px-3 sm:px-4 lg:px-6 xl:px-8 py-3 sm:py-4 lg:py-6 xl:py-8">
         <StatsGrid stats={stats} />
-        {/* Tabs */}
-        <div className="bg-white rounded-lg shadow-sm border mb-4 sm:mb-6">
-          <div className="border-b border-gray-200 overflow-x-auto">
-            <nav className="flex space-x-4 sm:space-x-8 px-2 sm:px-6">
-              <button
-                onClick={() => setActiveTab('orders')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'orders'
-                    ? 'border-orange-500 text-orange-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Orders
-              </button>
-              <button
-                onClick={() => setActiveTab('menu')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'menu'
-                    ? 'border-orange-500 text-orange-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Menu Management
-              </button>
-              <button
-                onClick={() => setActiveTab('goods')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'goods'
-                    ? 'border-orange-500 text-orange-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Goods
-              </button>
-              <button
-                onClick={() => setActiveTab('ingredients')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'ingredients'
-                    ? 'border-orange-500 text-orange-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Ingredients
-              </button>
-              <button
-                onClick={() => setActiveTab('setmenus')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'setmenus'
-                    ? 'border-orange-500 text-orange-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Set Menus
-              </button>
-            </nav>
+        
+        {/* Mobile Stats Message */}
+        <div className="md:hidden mb-4 space-y-3">
+          {/* Stock Status Card */}
+          <div className="bg-white rounded-lg shadow-sm border p-3">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-gray-700">Stock Status</h3>
+              <BarChart3 className="w-4 h-4 text-gray-500" />
+            </div>
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-600">In Stock:</span>
+                <span className="font-medium text-green-600">
+                  {stats.totalIngredients - stats.lowStockIngredients}
+                </span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-600">Low Stock:</span>
+                <span className="font-medium text-red-600">{stats.lowStockIngredients}</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2">
+                <div 
+                  className="bg-green-500 h-1.5 rounded-full transition-all duration-300"
+                  style={{ 
+                    width: `${stats.totalIngredients > 0 ? ((stats.totalIngredients - stats.lowStockIngredients) / stats.totalIngredients * 100) : 0}%` 
+                  }}
+                ></div>
+              </div>
+            </div>
           </div>
 
-          <div className="p-3 sm:p-6">
+          {/* Order Status Card */}
+          <div className="bg-white rounded-lg shadow-sm border p-3">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-gray-700">Order Status</h3>
+              <TrendingUp className="w-4 h-4 text-gray-500" />
+            </div>
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-600">Completed:</span>
+                <span className="font-medium text-green-600">
+                  {stats.totalOrders - stats.pendingOrders}
+                </span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-600">Pending:</span>
+                <span className="font-medium text-orange-600">{stats.pendingOrders}</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2">
+                <div 
+                  className="bg-orange-500 h-1.5 rounded-full transition-all duration-300"
+                  style={{ 
+                    width: `${stats.totalOrders > 0 ? (stats.pendingOrders / stats.totalOrders * 100) : 0}%` 
+                  }}
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Tabs */}
+        <div className="bg-white rounded-lg shadow-sm border mb-4 sm:mb-6 lg:mb-8">
+          <div className="border-b border-gray-200">
+            <div className="overflow-x-auto scrollbar-hide">
+              <nav className="flex space-x-1 sm:space-x-2 md:space-x-4 lg:space-x-6 xl:space-x-8 px-3 sm:px-4 md:px-5 lg:px-6 xl:px-8 min-w-max">
+                <button
+                  onClick={() => setActiveTab('orders')}
+                  className={`py-3 sm:py-4 md:py-4 lg:py-5 px-2 sm:px-3 md:px-4 lg:px-5 xl:px-6 border-b-2 font-medium text-xs sm:text-sm md:text-sm lg:text-base xl:text-lg whitespace-nowrap transition-colors duration-200 ${
+                    activeTab === 'orders'
+                      ? 'border-orange-500 text-orange-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Orders
+                </button>
+                <button
+                  onClick={() => setActiveTab('menu')}
+                  className={`py-3 sm:py-4 md:py-4 lg:py-5 px-2 sm:px-3 md:px-4 lg:px-5 xl:px-6 border-b-2 font-medium text-xs sm:text-sm md:text-sm lg:text-base xl:text-lg whitespace-nowrap transition-colors duration-200 ${
+                    activeTab === 'menu'
+                      ? 'border-orange-500 text-orange-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <span className="hidden sm:inline">Menu Management</span>
+                  <span className="sm:hidden">Menu</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('goods')}
+                  className={`py-3 sm:py-4 md:py-4 lg:py-5 px-2 sm:px-3 md:px-4 lg:px-5 xl:px-6 border-b-2 font-medium text-xs sm:text-sm md:text-sm lg:text-base xl:text-lg whitespace-nowrap transition-colors duration-200 ${
+                    activeTab === 'goods'
+                      ? 'border-orange-500 text-orange-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Goods
+                </button>
+                <button
+                  onClick={() => setActiveTab('ingredients')}
+                  className={`py-3 sm:py-4 md:py-4 lg:py-5 px-2 sm:px-3 md:px-4 lg:px-5 xl:px-6 border-b-2 font-medium text-xs sm:text-sm md:text-sm lg:text-base xl:text-lg whitespace-nowrap transition-colors duration-200 ${
+                    activeTab === 'ingredients'
+                      ? 'border-orange-500 text-orange-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Ingredients
+                </button>
+                <button
+                  onClick={() => setActiveTab('setmenus')}
+                  className={`py-3 sm:py-4 md:py-4 lg:py-5 px-2 sm:px-3 md:px-4 lg:px-5 xl:px-6 border-b-2 font-medium text-xs sm:text-sm md:text-sm lg:text-base xl:text-lg whitespace-nowrap transition-colors duration-200 ${
+                    activeTab === 'setmenus'
+                      ? 'border-orange-500 text-orange-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <span className="hidden sm:inline">Set Menus</span>
+                  <span className="sm:hidden">Sets</span>
+                </button>
+              </nav>
+            </div>
+          </div>
+
+          <div className="p-3 sm:p-4 md:p-5 lg:p-6 xl:p-8">
             {activeTab === 'orders' && (
               <>
                 {/* Search Results Info */}
                 {searchQuery && (
-                  <div className="mb-2 sm:mb-4 p-2 sm:p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-xs sm:text-sm text-blue-800">
-                      Showing {filteredData.length} result{filteredData.length !== 1 ? 's' : ''} for "{searchQuery}"
+                  <div className="mb-3 sm:mb-4 lg:mb-6 p-2 sm:p-3 lg:p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-xs sm:text-sm lg:text-base text-blue-800">
+                      Showing {filteredData.length} result{filteredData.length !== 1 ? 's' : ''} for &quot;{searchQuery}&quot;
                     </p>
                   </div>
                 )}
@@ -512,13 +579,13 @@ export default function AdminPage() {
 
             {activeTab === 'menu' && (
               <>
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-semibold text-gray-800">Menu Items</h2>
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4 md:gap-5 lg:gap-6 mb-4 md:mb-5 lg:mb-6">
+                  <h2 className="text-lg sm:text-xl md:text-xl lg:text-2xl xl:text-3xl font-semibold text-gray-800">Menu Items</h2>
                   <button
                     onClick={() => setShowAddItem(true)}
-                    className="bg-orange-600 text-gray-900 px-4 py-2 rounded-lg hover:bg-orange-700 flex items-center"
+                    className="bg-orange-600 text-gray-900 px-3 sm:px-4 md:px-5 lg:px-6 py-2 sm:py-2.5 md:py-2.5 lg:py-3 rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center sm:justify-start w-full sm:w-auto text-sm sm:text-base md:text-base lg:text-lg"
                   >
-                    <Plus className="w-4 h-4 mr-2" />
+                    <Plus className="w-4 h-4 sm:w-5 sm:h-5 md:w-5 md:h-5 lg:w-6 lg:h-6 mr-2" />
                     Add Item
                   </button>
                 </div>
@@ -546,13 +613,13 @@ export default function AdminPage() {
 
             {activeTab === 'goods' && (
               <>
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-semibold text-gray-800">Goods Items</h2>
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4 md:gap-5 lg:gap-6 mb-4 md:mb-5 lg:mb-6">
+                  <h2 className="text-lg sm:text-xl md:text-xl lg:text-2xl xl:text-3xl font-semibold text-gray-800">Goods Items</h2>
                   <button
                     onClick={() => setShowAddItem(true)}
-                    className="bg-orange-600 text-gray-900 px-4 py-2 rounded-lg hover:bg-orange-700 flex items-center"
+                    className="bg-orange-600 text-gray-900 px-3 sm:px-4 md:px-5 lg:px-6 py-2 sm:py-2.5 md:py-2.5 lg:py-3 rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center sm:justify-start w-full sm:w-auto text-sm sm:text-base md:text-base lg:text-lg"
                   >
-                    <Plus className="w-4 h-4 mr-2" />
+                    <Plus className="w-4 h-4 sm:w-5 sm:h-5 md:w-5 md:h-5 lg:w-6 lg:h-6 mr-2" />
                     Add Item
                   </button>
                 </div>
@@ -580,13 +647,13 @@ export default function AdminPage() {
 
             {activeTab === 'ingredients' && (
               <>
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-semibold text-gray-800">Ingredients</h2>
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4 md:gap-5 lg:gap-6 mb-4 md:mb-5 lg:mb-6">
+                  <h2 className="text-lg sm:text-xl md:text-xl lg:text-2xl xl:text-3xl font-semibold text-gray-800">Ingredients</h2>
                   <button
                     onClick={() => setShowAddIngredient(true)}
-                    className="bg-orange-600 text-gray-900 px-4 py-2 rounded-lg hover:bg-orange-700 flex items-center"
+                    className="bg-orange-600 text-gray-900 px-3 sm:px-4 md:px-5 lg:px-6 py-2 sm:py-2.5 md:py-2.5 lg:py-3 rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center sm:justify-start w-full sm:w-auto text-sm sm:text-base md:text-base lg:text-lg"
                   >
-                    <Plus className="w-4 h-4 mr-2" />
+                    <Plus className="w-4 h-4 sm:w-5 sm:h-5 md:w-5 md:h-5 lg:w-6 lg:h-6 mr-2" />
                     Add Ingredient
                   </button>
                 </div>
@@ -608,7 +675,17 @@ export default function AdminPage() {
             )}
 
             {activeTab === 'setmenus' && (
-              <div className="py-8">
+              <>
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4 md:gap-5 lg:gap-6 mb-4 md:mb-5 lg:mb-6">
+                  <h2 className="text-lg sm:text-xl md:text-xl lg:text-2xl xl:text-3xl font-semibold text-gray-800">Set Menus</h2>
+                  <button
+                    onClick={handleAddSetMenu}
+                    className="bg-orange-600 text-gray-900 px-3 sm:px-4 md:px-5 lg:px-6 py-2 sm:py-2.5 md:py-2.5 lg:py-3 rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center sm:justify-start w-full sm:w-auto text-sm sm:text-base md:text-base lg:text-lg"
+                  >
+                    <Plus className="w-4 h-4 sm:w-5 sm:h-5 md:w-5 md:h-5 lg:w-6 lg:h-6 mr-2" />
+                    Add Set Menu
+                  </button>
+                </div>
                 <SetMenuList
                   setMenus={setMenus}
                   onEdit={handleEditSetMenu}
@@ -624,7 +701,7 @@ export default function AdminPage() {
                   initialData={editingSetMenu}
                   loading={false}
                 />
-              </div>
+              </>
             )}
           </div>
         </div>

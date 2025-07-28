@@ -226,17 +226,6 @@ export default function Home() {
               {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
             </button>
           </div>
-
-          <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-gray-50 rounded-lg">
-            <h3 className="font-medium text-gray-800 mb-2 text-sm sm:text-base">Demo Accounts:</h3>
-            <div className="text-xs sm:text-sm text-gray-600 space-y-1">
-              <p><strong>Admin:</strong> admin@homie.kitchen / admin123</p>
-              <p><strong>Customers:</strong></p>
-              <p>• john@homie.kitchen / customer123</p>
-              <p>• sarah@homie.kitchen / customer123</p>
-              <p>• mike@homie.kitchen / customer123</p>
-            </div>
-          </div>
         </div>
       </div>
     </div>

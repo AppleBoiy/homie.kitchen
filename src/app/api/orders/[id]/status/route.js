@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
+import dbAdapter from '@/lib/db';
 
 export async function PUT(request, { params }) {
   try {
@@ -13,8 +13,8 @@ export async function PUT(request, { params }) {
       );
     }
 
-    const updateOrder = db.prepare('UPDATE orders SET status = ? WHERE id = ?');
-    const result = updateOrder.run(status, id);
+    const updateOrder = await dbAdapter.prepare('UPDATE orders SET status = ? WHERE id = ?');
+    const result = await updateOrder.run(status, id);
 
     if (result.changes === 0) {
       return NextResponse.json(

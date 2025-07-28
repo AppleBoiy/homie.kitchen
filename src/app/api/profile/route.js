@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
+import dbAdapter from '@/lib/db';
 import bcrypt from 'bcryptjs';
 
 export async function GET(request) {
@@ -11,7 +11,8 @@ export async function GET(request) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
     }
 
-    const user = db.prepare('SELECT id, email, name, role FROM users WHERE id = ?').get(userId);
+    const stmt = await dbAdapter.prepare('SELECT id, email, name, role FROM users WHERE id = ?');
+    const user = await stmt.get(userId);
     
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -33,7 +34,7 @@ export async function PUT(request) {
     }
 
     // Check if user exists
-    const existingUser = db.prepare('SELECT id, password FROM users WHERE id = ?').get(userId);
+    const existingUser = await dbAdapter.prepare('SELECT id, password FROM users WHERE id = ?').get(userId);
     if (!existingUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -51,11 +52,11 @@ export async function PUT(request) {
 
       // Hash new password and update
       const hashedPassword = bcrypt.hashSync(newPassword, 10);
-      db.prepare('UPDATE users SET name = ?, password = ? WHERE id = ?')
+      await dbAdapter.prepare('UPDATE users SET name = ?, password = ? WHERE id = ?')
         .run(name, hashedPassword, userId);
     } else {
       // Update name only
-      db.prepare('UPDATE users SET name = ? WHERE id = ?')
+      await dbAdapter.prepare('UPDATE users SET name = ? WHERE id = ?')
         .run(name, userId);
     }
     

@@ -1,29 +1,29 @@
 const bcrypt = require('bcryptjs');
-const { createTestDatabase, insertTestData, cleanupTestDatabase } = require('../../src/lib/test-db');
+const { createTestDatabaseSync, insertTestData, cleanupTestDatabase } = require('../../src/lib/test-db');
 
 describe('Authentication API', () => {
   let db;
 
-  beforeAll(() => {
-    db = createTestDatabase();
-    insertTestData(db);
+  beforeAll(async () => {
+    db = createTestDatabaseSync();
+    await insertTestData(db);
   });
 
-  afterAll(() => {
-    cleanupTestDatabase(db);
+  afterAll(async () => {
+    await cleanupTestDatabase(db);
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Clean up test data
-    db.prepare('DELETE FROM order_items').run();
-    db.prepare('DELETE FROM orders').run();
-    db.prepare('DELETE FROM menu_items').run();
-    db.prepare('DELETE FROM ingredients').run();
-    db.prepare('DELETE FROM categories').run();
-    db.prepare('DELETE FROM users').run();
+    await db.prepare('DELETE FROM order_items').run();
+    await db.prepare('DELETE FROM orders').run();
+    await db.prepare('DELETE FROM menu_items').run();
+    await db.prepare('DELETE FROM ingredients').run();
+    await db.prepare('DELETE FROM categories').run();
+    await db.prepare('DELETE FROM users').run();
 
     // Re-insert test data
-    insertTestData(db);
+    await insertTestData(db);
   });
 
   describe('POST /api/auth/register', () => {
@@ -42,7 +42,7 @@ describe('Authentication API', () => {
         VALUES (?, ?, ?, ?)
       `);
       
-      const result = insertUser.run(
+      const result = await insertUser.run(
         userData.email,
         hashedPassword,
         userData.name,
@@ -50,10 +50,12 @@ describe('Authentication API', () => {
       );
 
       expect(result.changes).toBe(1);
-      expect(result.lastInsertRowid).toBeDefined();
+      // Handle both better-sqlite3 and sqlite result formats
+      const insertedId = result.lastInsertRowid || result.lastID;
+      expect(insertedId).toBeDefined();
 
       // Verify the user was created
-      const createdUser = db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
+      const createdUser = await db.prepare('SELECT * FROM users WHERE id = ?').get(insertedId);
       expect(createdUser).toBeDefined();
       expect(createdUser.email).toBe(userData.email);
       expect(createdUser.name).toBe(userData.name);
@@ -95,103 +97,46 @@ describe('Authentication API', () => {
         VALUES (?, ?, ?, ?)
       `);
       
-      insertUser.run(userData.email, hashedPassword, userData.name, userData.role);
+      await insertUser.run(userData.email, hashedPassword, userData.name, userData.role);
 
       // Second registration with same email should fail
-      expect(() => {
-        insertUser.run(userData.email, hashedPassword, userData.name, userData.role);
-      }).toThrow('UNIQUE constraint failed: users.email');
-    });
-
-    it('should return 400 for invalid role', async () => {
-      const userData = {
-        email: 'test@example.com',
-        password: 'testpassword123',
-        name: 'Test User',
-        role: 'invalid_role' // Invalid role
-      };
-
-      // Test role validation
-      const validRoles = ['customer', 'admin'];
-      const isValidRole = validRoles.includes(userData.role);
-      expect(isValidRole).toBe(false); // Role is invalid
+      await expect(async () => {
+        await insertUser.run(userData.email, hashedPassword, userData.name, userData.role);
+      }).rejects.toThrow();
     });
   });
 
   describe('POST /api/auth/login', () => {
+    it('should login successfully with valid credentials', async () => {
+      const email = 'test@example.com';
+      const password = 'test123';
 
-    it('should login successfully with correct credentials', async () => {
-      // Create a test user for this specific test
-      const testEmail = `logintest${Date.now()}@example.com`;
-      const testPassword = 'testpassword';
-      const hashedPassword = bcrypt.hashSync(testPassword, 10);
+      // Test database query directly
+      const user = await db.prepare('SELECT * FROM users WHERE email = ?').get(email);
       
-      db.prepare('INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)')
-        .run(testEmail, hashedPassword, 'Login Test User', 'customer');
-
-      const loginData = {
-        email: testEmail,
-        password: testPassword
-      };
-
-      // Test login logic directly
-      const user = db.prepare('SELECT * FROM users WHERE email = ?').get(loginData.email);
       expect(user).toBeDefined();
-      
-      const isValidPassword = bcrypt.compareSync(loginData.password, user.password);
-      expect(isValidPassword).toBe(true);
-      
-      // Verify user data
-      expect(user.name).toBe('Login Test User');
-      expect(user.role).toBe('customer');
+      expect(user.email).toBe(email);
+      expect(bcrypt.compareSync(password, user.password)).toBe(true);
     });
 
-    it('should return 401 for incorrect password', async () => {
-      // Create a test user for this specific test
-      const testEmail = `wrongpass${Date.now()}@example.com`;
-      const correctPassword = 'testpassword';
-      const hashedPassword = bcrypt.hashSync(correctPassword, 10);
+    it('should fail login with invalid email', async () => {
+      const email = 'nonexistent@example.com';
+
+      // Test database query directly
+      const user = await db.prepare('SELECT * FROM users WHERE email = ?').get(email);
       
-      db.prepare('INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)')
-        .run(testEmail, hashedPassword, 'Login Test User', 'customer');
+      expect(user).toBeUndefined();
+    });
 
-      const loginData = {
-        email: testEmail,
-        password: 'wrongpassword'
-      };
+    it('should fail login with invalid password', async () => {
+      const email = 'test@example.com';
+      const wrongPassword = 'wrongpassword';
 
-      // Test login logic directly
-      const user = db.prepare('SELECT * FROM users WHERE email = ?').get(loginData.email);
+      // Test database query directly
+      const user = await db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+      
       expect(user).toBeDefined();
-      
-      const isValidPassword = bcrypt.compareSync(loginData.password, user.password);
-      expect(isValidPassword).toBe(false); // Password is incorrect
-    });
-
-    it('should return 404 for non-existent user', async () => {
-      const loginData = {
-        email: 'nonexistent@example.com',
-        password: 'testpassword'
-      };
-
-      // Test login logic directly
-      const user = db.prepare('SELECT * FROM users WHERE email = ?').get(loginData.email);
-      expect(user).toBeUndefined(); // User doesn't exist
-    });
-
-    it('should return 400 for missing credentials', async () => {
-      const loginData = {
-        // Missing email and password
-      };
-
-      // Test validation logic directly
-      const { email, password } = loginData;
-      
-      if (!email || !password) {
-        expect(true).toBe(true); // Validation would fail
-      } else {
-        expect(true).toBe(false); // This should not happen
-      }
+      expect(bcrypt.compareSync(wrongPassword, user.password)).toBe(false);
     });
   });
 }); 

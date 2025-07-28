@@ -1,68 +1,65 @@
-import { Package, Clock, DollarSign, TrendingUp, Warehouse, ShoppingBag } from 'lucide-react';
+import { Package, Clock, DollarSign, TrendingUp, Warehouse, ShoppingBag, AlertTriangle, Users, BarChart3 } from 'lucide-react';
 
 export default function StatsGrid({ stats }) {
+  // Calculate additional metrics
+  const avgOrderValue = stats.totalOrders > 0 ? stats.totalRevenue / stats.totalOrders : 0;
+  const pendingPercentage = stats.totalOrders > 0 ? (stats.pendingOrders / stats.totalOrders * 100) : 0;
+  const lowStockPercentage = stats.totalIngredients > 0 ? (stats.lowStockIngredients / stats.totalIngredients * 100) : 0;
+
   return (
-    <div className="hidden sm:grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 gap-y-4 mb-6 sm:mb-8">
-      <div className="bg-white rounded-lg md:rounded-xl shadow-md hover:shadow-lg min-h-[120px] flex flex-col justify-center transition-all border p-6 mb-2 sm:mb-0">
-        <div className="flex items-center gap-4">
-          <Package className="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" />
-          <div>
-            <p className="text-xs sm:text-sm font-medium text-gray-600">Total Orders</p>
-            <p className="text-2xl sm:text-3xl font-bold text-gray-800 gap-2">{stats.totalOrders}</p>
+    <div className="hidden md:block space-y-4 sm:space-y-6 lg:space-y-8 mb-4 sm:mb-6 lg:mb-8 xl:mb-10">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 xl:gap-8">
+        <div className="bg-white rounded-lg shadow-sm border p-3 sm:p-4 lg:p-6 xl:p-8 lg:col-span-1 xl:col-span-2">
+          <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
+            <h3 className="text-xs sm:text-sm lg:text-base xl:text-lg font-semibold text-gray-700">Stock Status</h3>
+            <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-gray-500" />
+          </div>
+          <div className="space-y-1 sm:space-y-2 lg:space-y-3">
+            <div className="flex justify-between text-xs sm:text-sm lg:text-base">
+              <span className="text-gray-600">In Stock:</span>
+              <span className="font-medium text-green-600">
+                {stats.totalIngredients - stats.lowStockIngredients}
+              </span>
+            </div>
+            <div className="flex justify-between text-xs sm:text-sm lg:text-base">
+              <span className="text-gray-600">Low Stock:</span>
+              <span className="font-medium text-red-600">{stats.lowStockIngredients}</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-1.5 sm:h-2 lg:h-2.5 mt-2 lg:mt-3">
+              <div 
+                className="bg-green-500 h-1.5 sm:h-2 lg:h-2.5 rounded-full transition-all duration-300"
+                style={{ 
+                  width: `${stats.totalIngredients > 0 ? ((stats.totalIngredients - stats.lowStockIngredients) / stats.totalIngredients * 100) : 0}%` 
+                }}
+              ></div>
+            </div>
           </div>
         </div>
-      </div>
-      <div className="bg-white rounded-lg md:rounded-xl shadow-md hover:shadow-lg min-h-[120px] flex flex-col justify-center transition-all border p-6 mb-2 sm:mb-0">
-        <div className="flex items-center gap-4">
-          <Clock className="w-8 h-8 sm:w-10 sm:h-10 text-yellow-600" />
-          <div>
-            <p className="text-xs sm:text-sm font-medium text-gray-600">Pending Orders</p>
-            <p className="text-2xl sm:text-3xl font-bold text-gray-800 gap-2">{stats.pendingOrders}</p>
+
+        <div className="bg-white rounded-lg shadow-sm border p-3 sm:p-4 lg:p-6 xl:p-8 lg:col-span-1 xl:col-span-2">
+          <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
+            <h3 className="text-xs sm:text-sm lg:text-base xl:text-lg font-semibold text-gray-700">Order Status</h3>
+            <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-gray-500" />
           </div>
-        </div>
-      </div>
-      <div className="bg-white rounded-lg md:rounded-xl shadow-md hover:shadow-lg min-h-[120px] flex flex-col justify-center transition-all border p-6 mb-2 sm:mb-0">
-        <div className="flex items-center gap-4">
-          <DollarSign className="w-8 h-8 sm:w-10 sm:h-10 text-green-600" />
-          <div>
-            <p className="text-xs sm:text-sm font-medium text-gray-600">Total Revenue</p>
-            <p className="text-2xl sm:text-3xl font-bold text-gray-800 gap-2">${stats.totalRevenue.toFixed(2)}</p>
-          </div>
-        </div>
-      </div>
-      <div className="bg-white rounded-lg md:rounded-xl shadow-md hover:shadow-lg min-h-[120px] flex flex-col justify-center transition-all border p-6 mb-2 sm:mb-0">
-        <div className="flex items-center gap-4">
-          <TrendingUp className="w-8 h-8 sm:w-10 sm:h-10 text-orange-600" />
-          <div>
-            <p className="text-xs sm:text-sm font-medium text-gray-600">Menu Items</p>
-            <p className="text-2xl sm:text-3xl font-bold text-gray-800 gap-2">{stats.totalMenuItems}</p>
-          </div>
-        </div>
-      </div>
-      <div className="bg-white rounded-lg md:rounded-xl shadow-md hover:shadow-lg min-h-[120px] flex flex-col justify-center transition-all border p-6 mb-2 sm:mb-0">
-        <div className="flex items-center gap-4">
-          <ShoppingBag className="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" />
-          <div>
-            <p className="text-xs sm:text-sm font-medium text-gray-600">Goods Items</p>
-            <p className="text-2xl sm:text-3xl font-bold text-gray-800 gap-2">{stats.totalGoodsItems}</p>
-          </div>
-        </div>
-      </div>
-      <div className="bg-white rounded-lg md:rounded-xl shadow-md hover:shadow-lg min-h-[120px] flex flex-col justify-center transition-all border p-6 mb-2 sm:mb-0">
-        <div className="flex items-center gap-4">
-          <Warehouse className="w-8 h-8 sm:w-10 sm:h-10 text-purple-600" />
-          <div>
-            <p className="text-xs sm:text-sm font-medium text-gray-600">Ingredients</p>
-            <p className="text-2xl sm:text-3xl font-bold text-gray-800 gap-2">{stats.totalIngredients}</p>
-          </div>
-        </div>
-      </div>
-      <div className="bg-white rounded-lg md:rounded-xl shadow-md hover:shadow-lg min-h-[120px] flex flex-col justify-center transition-all border p-6 mb-2 sm:mb-0">
-        <div className="flex items-center gap-4">
-          <Package className="w-8 h-8 sm:w-10 sm:h-10 text-red-600" />
-          <div>
-            <p className="text-xs sm:text-sm font-medium text-gray-600">Low Stock</p>
-            <p className="text-2xl sm:text-3xl font-bold text-gray-800 gap-2">{stats.lowStockIngredients}</p>
+          <div className="space-y-1 sm:space-y-2 lg:space-y-3">
+            <div className="flex justify-between text-xs sm:text-sm lg:text-base">
+              <span className="text-gray-600">Completed:</span>
+              <span className="font-medium text-green-600">
+                {stats.totalOrders - stats.pendingOrders}
+              </span>
+            </div>
+            <div className="flex justify-between text-xs sm:text-sm lg:text-base">
+              <span className="text-gray-600">Pending:</span>
+              <span className="font-medium text-orange-600">{stats.pendingOrders}</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-1.5 sm:h-2 lg:h-2.5 mt-2 lg:mt-3">
+              <div 
+                className="bg-orange-500 h-1.5 sm:h-2 lg:h-2.5 rounded-full transition-all duration-300"
+                style={{ 
+                  width: `${pendingPercentage}%` 
+                }}
+              ></div>
+            </div>
           </div>
         </div>
       </div>

@@ -36,14 +36,14 @@ export default function MenuItemCard({ item, category, onEdit, onDelete, onImage
         <div className="flex space-x-2 mt-auto">
           <button
             onClick={() => onEdit(item)}
-            className="flex-1 bg-blue-600 text-gray-900 px-3 py-1 rounded text-sm hover:bg-blue-700 flex items-center justify-center"
+            className="flex-1 bg-slate-600 text-white px-3 py-1 rounded text-sm hover:bg-slate-700 flex items-center justify-center"
           >
             <Edit className="w-3 h-3 mr-1" />
             Edit
           </button>
           <button
             onClick={() => onDelete(item.id)}
-            className="flex-1 bg-red-600 text-gray-900 px-3 py-1 rounded text-sm hover:bg-red-700 flex items-center justify-center"
+            className="flex-1 bg-rose-600 text-white px-3 py-1 rounded text-sm hover:bg-rose-700 flex items-center justify-center"
           >
             <Trash2 className="w-3 h-3 mr-1" />
             Delete

@@ -1,15 +1,6 @@
 export default function SetMenuList({ setMenus, onEdit, onDelete, onAdd }) {
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold text-gray-800">Set Menus</h2>
-        <button
-          onClick={onAdd}
-          className="bg-orange-600 text-gray-900 px-4 py-2 rounded-lg hover:bg-orange-700 font-medium"
-        >
-          + Add Set Menu
-        </button>
-      </div>
       {setMenus.length === 0 ? (
         <div className="text-center text-gray-500 py-8">No set menus yet.</div>
       ) : (
@@ -25,13 +16,13 @@ export default function SetMenuList({ setMenus, onEdit, onDelete, onAdd }) {
               <div className="flex space-x-2">
                 <button
                   onClick={() => onEdit(setMenu)}
-                  className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+                  className="bg-slate-600 text-white px-3 py-1 rounded hover:bg-slate-700"
                 >
                   Edit
                 </button>
                 <button
                   onClick={() => onDelete(setMenu.id)}
-                  className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
+                  className="bg-rose-600 text-white px-3 py-1 rounded hover:bg-rose-700"
                 >
                   Delete
                 </button>

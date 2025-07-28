@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
+import dbAdapter from '@/lib/db';
 
 export async function GET() {
   try {
-    const ingredients = db.prepare(`
+    const stmt = await dbAdapter.prepare(`
       SELECT * FROM ingredients 
       ORDER BY name
-    `).all();
+    `);
+    const ingredients = await stmt.all();
 
     return NextResponse.json(ingredients);
   } catch (error) {
@@ -31,12 +32,12 @@ export async function POST(request) {
       );
     }
 
-    const insertIngredient = db.prepare(`
+    const insertIngredient = await dbAdapter.prepare(`
       INSERT INTO ingredients (name, description, stock_quantity, unit, min_stock_level)
       VALUES (?, ?, ?, ?, ?)
     `);
     
-    const result = insertIngredient.run(
+    const result = await insertIngredient.run(
       name, 
       description, 
       stock_quantity || 0, 
@@ -47,7 +48,7 @@ export async function POST(request) {
     return NextResponse.json(
       { 
         message: 'Ingredient added successfully',
-        id: result.lastInsertRowid
+        id: result.lastInsertRowid || result.lastID || (await dbAdapter.query('SELECT LASTVAL() as id'))[0].id
       },
       { status: 201 }
     );

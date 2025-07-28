@@ -1,77 +1,172 @@
-import Database from 'better-sqlite3';
 import bcrypt from 'bcryptjs';
+import sqlite3 from 'sqlite3';
+import { open } from 'sqlite';
 
-const db = new Database('restaurant.db');
+// Database adapter that supports both SQLite (local) and Postgres (production)
+class DatabaseAdapter {
+  constructor() {
+    this.isProduction = process.env.NODE_ENV === 'production';
+    this.db = null;
+    this.initialized = false;
+    this.initPromise = null;
+  }
+
+  async init() {
+    if (this.initPromise) {
+      return this.initPromise;
+    }
+
+    this.initPromise = (async () => {
+      if (this.isProduction) {
+        // Use Vercel Postgres in production
+        const { sql } = await import('@vercel/postgres');
+        this.db = sql;
+      } else {
+        // Use SQLite in development
+        this.db = await open({
+          filename: 'restaurant.db',
+          driver: sqlite3.Database
+        });
+      }
+      this.initialized = true;
+    })();
+
+    return this.initPromise;
+  }
+
+  async ensureInitialized() {
+    if (!this.initialized) {
+      await this.init();
+    }
+  }
+
+  async exec(sql) {
+    await this.ensureInitialized();
+    
+    if (this.isProduction) {
+      await this.db.query(sql);
+    } else {
+      await this.db.exec(sql);
+    }
+  }
+
+  async prepare(sql) {
+    await this.ensureInitialized();
+    
+    if (this.isProduction) {
+      return {
+        run: async (...params) => {
+          if (Array.isArray(params)) {
+            await this.db.query(sql, params);
+          } else {
+            await this.db.query(sql, Object.values(params || {}));
+          }
+        },
+        get: async (...params) => {
+          if (Array.isArray(params)) {
+            const result = await this.db.query(sql, params);
+            return result.rows[0];
+          } else {
+            const result = await this.db.query(sql, Object.values(params || {}));
+            return result.rows[0];
+          }
+        },
+        all: async (...params) => {
+          if (Array.isArray(params)) {
+            const result = await this.db.query(sql, params);
+            return result.rows;
+          } else {
+            const result = await this.db.query(sql, Object.values(params || {}));
+            return result.rows;
+          }
+        }
+      };
+    } else {
+      return this.db.prepare(sql);
+    }
+  }
+
+  async query(sql, params = []) {
+    await this.ensureInitialized();
+    
+    if (this.isProduction) {
+      const result = await this.db.query(sql, params);
+      return result.rows;
+    } else {
+      return this.db.all(sql, params);
+    }
+  }
+}
+
+const dbAdapter = new DatabaseAdapter();
 
 // Initialize database tables
-const initDatabase = () => {
+const initDatabase = async () => {
   // Users table
-  db.exec(`
+  await dbAdapter.exec(`
     CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       email TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
       name TEXT NOT NULL,
       role TEXT NOT NULL CHECK (role IN ('customer', 'staff', 'admin')),
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
   // Categories table
-  db.exec(`
+  await dbAdapter.exec(`
     CREATE TABLE IF NOT EXISTS categories (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       description TEXT
     )
   `);
 
   // Ingredients table
-  db.exec(`
+  await dbAdapter.exec(`
     CREATE TABLE IF NOT EXISTS ingredients (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       description TEXT,
       stock_quantity INTEGER DEFAULT 0,
       unit TEXT NOT NULL,
       min_stock_level INTEGER DEFAULT 10,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
-  // Menu items table (removed stock_quantity, added image_url)
-  db.exec(`
+  // Menu items table
+  await dbAdapter.exec(`
     CREATE TABLE IF NOT EXISTS menu_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT NOT NULL UNIQUE,
       description TEXT,
       price REAL NOT NULL,
       category_id INTEGER,
       image_url TEXT,
-      is_available BOOLEAN DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      is_available BOOLEAN DEFAULT true,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (category_id) REFERENCES categories (id)
     )
   `);
 
-
-
   // Orders table
-  db.exec(`
+  await dbAdapter.exec(`
     CREATE TABLE IF NOT EXISTS orders (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       customer_id INTEGER NOT NULL,
       total_amount REAL NOT NULL,
       status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'preparing', 'ready', 'completed', 'cancelled')),
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (customer_id) REFERENCES users (id)
     )
   `);
 
   // Order items table
-  db.exec(`
+  await dbAdapter.exec(`
     CREATE TABLE IF NOT EXISTS order_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       order_id INTEGER NOT NULL,
       menu_item_id INTEGER NOT NULL,
       quantity INTEGER NOT NULL,
@@ -81,30 +176,31 @@ const initDatabase = () => {
       FOREIGN KEY (menu_item_id) REFERENCES menu_items (id)
     )
   `);
+
   // Add note column if it doesn't exist (for migrations)
   try {
-    db.prepare('ALTER TABLE order_items ADD COLUMN note TEXT').run();
+    await dbAdapter.exec('ALTER TABLE order_items ADD COLUMN note TEXT');
   } catch (e) {
     // Ignore error if column already exists
   }
 
   // Add created_at column to users table if it doesn't exist (for migrations)
   try {
-    db.prepare('ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP').run();
+    await dbAdapter.exec('ALTER TABLE users ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
   } catch (e) {
     // Ignore error if column already exists
   }
 
   // Update existing users who don't have created_at to have a default value
   try {
-    db.prepare('UPDATE users SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL').run();
+    await dbAdapter.exec('UPDATE users SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL');
   } catch (e) {
     // Ignore error if column doesn't exist yet
   }
 
   // Insert default categories
-  const checkCategory = db.prepare('SELECT id FROM categories WHERE name = ?');
-  const insertCategory = db.prepare('INSERT INTO categories (name, description) VALUES (?, ?)');
+  const checkCategory = await dbAdapter.prepare('SELECT id FROM categories WHERE name = ?');
+  const insertCategory = await dbAdapter.prepare('INSERT INTO categories (name, description) VALUES (?, ?)');
   
   const categories = [
     ['Appetizers', 'Start your meal with our delicious appetizers'],
@@ -113,25 +209,25 @@ const initDatabase = () => {
     ['Beverages', 'Refreshing drinks and beverages']
   ];
   
-  categories.forEach(([name, description]) => {
-    const existing = checkCategory.get(name);
+  for (const [name, description] of categories) {
+    const existing = await checkCategory.get(name);
     if (!existing) {
-      insertCategory.run(name, description);
+      await insertCategory.run(name, description);
     }
-  });
+  }
 
   // Insert default admin user
   const hashedPassword = bcrypt.hashSync('admin123', 10);
-  const insertUser = db.prepare('INSERT OR IGNORE INTO users (email, password, name, role) VALUES (?, ?, ?, ?)');
-  insertUser.run('admin@homie.kitchen', hashedPassword, 'Admin User', 'admin');
+  const insertUser = await dbAdapter.prepare('INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?) ON CONFLICT (email) DO NOTHING');
+  await insertUser.run('admin@homie.kitchen', hashedPassword, 'Admin User', 'admin');
 
   // Insert default staff user
   const staffPassword = bcrypt.hashSync('staff123', 10);
-  insertUser.run('staff@homie.kitchen', staffPassword, 'Staff User', 'staff');
+  await insertUser.run('staff@homie.kitchen', staffPassword, 'Staff User', 'staff');
 
   // Insert sample ingredients
-  const checkIngredient = db.prepare('SELECT id FROM ingredients WHERE name = ?');
-  const insertIngredient = db.prepare(`
+  const checkIngredient = await dbAdapter.prepare('SELECT id FROM ingredients WHERE name = ?');
+  const insertIngredient = await dbAdapter.prepare(`
     INSERT INTO ingredients (name, description, stock_quantity, unit, min_stock_level) 
     VALUES (?, ?, ?, ?, ?)
   `);
@@ -147,16 +243,16 @@ const initDatabase = () => {
     ['Chocolate', 'Dark chocolate', 8, 'kg', 2]
   ];
   
-  ingredients.forEach(([name, description, stock_quantity, unit, min_stock_level]) => {
-    const existing = checkIngredient.get(name);
+  for (const [name, description, stock_quantity, unit, min_stock_level] of ingredients) {
+    const existing = await checkIngredient.get(name);
     if (!existing) {
-      insertIngredient.run(name, description, stock_quantity, unit, min_stock_level);
+      await insertIngredient.run(name, description, stock_quantity, unit, min_stock_level);
     }
-  });
+  }
 
   // Insert sample menu items with proper web URLs
-  const checkMenuItem = db.prepare('SELECT id FROM menu_items WHERE name = ?');
-  const insertMenuItem = db.prepare(`
+  const checkMenuItem = await dbAdapter.prepare('SELECT id FROM menu_items WHERE name = ?');
+  const insertMenuItem = await dbAdapter.prepare(`
     INSERT INTO menu_items (name, description, price, category_id, image_url) 
     VALUES (?, ?, ?, ?, ?)
   `);
@@ -170,16 +266,16 @@ const initDatabase = () => {
     ['Iced Coffee', 'Cold brewed coffee with cream and sugar', 4.99, 4, 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=400&h=300&fit=crop']
   ];
   
-  menuItems.forEach(([name, description, price, category_id, image_url]) => {
-    const existing = checkMenuItem.get(name);
+  for (const [name, description, price, category_id, image_url] of menuItems) {
+    const existing = await checkMenuItem.get(name);
     if (!existing) {
-      insertMenuItem.run(name, description, price, category_id, image_url);
+      await insertMenuItem.run(name, description, price, category_id, image_url);
     }
-  });
+  }
 
   // Insert sample customers
   const customerPassword = bcrypt.hashSync('customer123', 10);
-  const insertCustomer = db.prepare('INSERT OR IGNORE INTO users (email, password, name, role) VALUES (?, ?, ?, ?)');
+  const insertCustomer = await dbAdapter.prepare('INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?) ON CONFLICT (email) DO NOTHING');
   
   const customers = [
     ['john@example.com', customerPassword, 'John Smith', 'customer'],
@@ -189,29 +285,28 @@ const initDatabase = () => {
     ['alex@example.com', customerPassword, 'Alex Brown', 'customer']
   ];
   
-  customers.forEach(([email, password, name, role]) => {
-    insertCustomer.run(email, password, name, role);
-  });
+  for (const [email, password, name, role] of customers) {
+    await insertCustomer.run(email, password, name, role);
+  }
 
   // Insert sample orders with realistic data
-  const insertOrder = db.prepare(`
-    INSERT OR IGNORE INTO orders (id, customer_id, total_amount, status, created_at) 
-    VALUES (?, ?, ?, ?, ?)
+  const insertOrder = await dbAdapter.prepare(`
+    INSERT INTO orders (customer_id, total_amount, status, created_at) 
+    VALUES (?, ?, ?, ?)
   `);
   
-  const insertOrderItem = db.prepare(`
-    INSERT OR IGNORE INTO order_items (order_id, menu_item_id, quantity, price) 
+  const insertOrderItem = await dbAdapter.prepare(`
+    INSERT INTO order_items (order_id, menu_item_id, quantity, price) 
     VALUES (?, ?, ?, ?)
   `);
 
   // Get customer and menu item IDs
-  const customerIds = db.prepare('SELECT id FROM users WHERE role = "customer"').all();
-  const menuItemIds = db.prepare('SELECT id, price FROM menu_items').all();
+  const customerIds = await dbAdapter.query('SELECT id FROM users WHERE role = $1', ['customer']);
+  const menuItemIds = await dbAdapter.query('SELECT id, price FROM menu_items');
   
   if (customerIds.length > 0 && menuItemIds.length > 0) {
     // Create sample orders for the last 30 days
     const now = new Date();
-    const orders = [];
     
     for (let i = 0; i < 50; i++) {
       const daysAgo = Math.floor(Math.random() * 30);
@@ -233,47 +328,50 @@ const initDatabase = () => {
       const statuses = ['completed', 'completed', 'completed', 'ready', 'preparing', 'pending'];
       const status = statuses[Math.floor(Math.random() * statuses.length)];
       
-      orders.push({
-        id: i + 1,
+      const order = {
         customerId,
         totalAmount: Math.round(totalAmount * 100) / 100,
         status,
         createdAt: orderDate.toISOString(),
         items: orderItems
-      });
-    }
-    
-    // Insert orders and order items
-    orders.forEach(order => {
-      insertOrder.run(order.id, order.customerId, order.totalAmount, order.status, order.createdAt);
+      };
       
-      order.items.forEach(item => {
-        insertOrderItem.run(order.id, item.menuItemId, item.quantity, item.price);
-      });
-    });
+      // Insert order and get the generated ID
+      const orderResult = await insertOrder.run(order.customerId, order.totalAmount, order.status, order.createdAt);
+      const orderId = orderResult.lastID || (await dbAdapter.query('SELECT LASTVAL() as id'))[0].id;
+      
+      // Insert order items
+      for (const item of order.items) {
+        await insertOrderItem.run(orderId, item.menuItemId, item.quantity, item.price);
+      }
+    }
   }
-
 };
 
 // Check if database is already initialized
-const isInitialized = () => {
+const isInitialized = async () => {
   try {
-    const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get();
-    const categoryCount = db.prepare('SELECT COUNT(*) as count FROM categories').get();
-    return userCount.count > 0 && categoryCount.count > 0;
+    const userCount = await dbAdapter.query('SELECT COUNT(*) as count FROM users');
+    const categoryCount = await dbAdapter.query('SELECT COUNT(*) as count FROM categories');
+    return userCount[0].count > 0 && categoryCount[0].count > 0;
   } catch (error) {
     return false;
   }
 };
 
 // Initialize database only if not already initialized
-if (!isInitialized()) {
-  try {
-    initDatabase();
-    console.log('Database initialized successfully');
-  } catch (error) {
-    console.error('Database initialization error:', error);
+const initializeDatabase = async () => {
+  if (!(await isInitialized())) {
+    try {
+      await initDatabase();
+      console.log('Database initialized successfully');
+    } catch (error) {
+      console.error('Database initialization error:', error);
+    }
   }
-}
+};
 
-export default db; 
+// Initialize the database
+initializeDatabase();
+
+export default dbAdapter; 

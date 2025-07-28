@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
+import dbAdapter from '@/lib/db';
 
 export async function PUT(request, { params }) {
   try {
@@ -8,13 +8,13 @@ export async function PUT(request, { params }) {
 
     // Check if this is a partial update (only availability)
     if (Object.keys(updateData).length === 1 && 'is_available' in updateData) {
-      const updateMenuItem = db.prepare(`
+      const updateMenuItem = await dbAdapter.prepare(`
         UPDATE menu_items 
         SET is_available = ?
         WHERE id = ?
       `);
       
-      const result = updateMenuItem.run(updateData.is_available ? 1 : 0, id);
+      const result = await updateMenuItem.run(updateData.is_available ? true : false, id);
 
       if (result.changes === 0) {
         return NextResponse.json(
@@ -36,13 +36,13 @@ export async function PUT(request, { params }) {
       );
     }
 
-    const updateMenuItem = db.prepare(`
+    const updateMenuItem = await dbAdapter.prepare(`
       UPDATE menu_items 
       SET name = ?, description = ?, price = ?, category_id = ?, image_url = ?, is_available = ?
       WHERE id = ?
     `);
     
-    const result = updateMenuItem.run(name, description, price, category_id, image_url || null, is_available ? 1 : 0, id);
+    const result = await updateMenuItem.run(name, description, price, category_id, image_url || null, is_available ? true : false, id);
 
     if (result.changes === 0) {
       return NextResponse.json(
@@ -66,8 +66,8 @@ export async function DELETE(request, { params }) {
     const { id } = await params;
 
     // Delete the menu item (relationships will be handled separately if needed)
-    const deleteMenuItem = db.prepare('DELETE FROM menu_items WHERE id = ?');
-    const result = deleteMenuItem.run(id);
+    const deleteMenuItem = await dbAdapter.prepare('DELETE FROM menu_items WHERE id = ?');
+    const result = await deleteMenuItem.run(id);
 
     if (result.changes === 0) {
       return NextResponse.json(

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
+import dbAdapter from '@/lib/db';
 
 export async function GET(request) {
   try {
@@ -28,11 +28,12 @@ export async function GET(request) {
 
     query += ' ORDER BY o.created_at DESC';
 
-    const orders = db.prepare(query).all(...params);
+    const stmt = await dbAdapter.prepare(query);
+    const orders = await stmt.all(...params);
 
     // Get order items for each order
-    const ordersWithItems = orders.map(order => {
-      const orderItems = db.prepare(`
+    const ordersWithItems = await Promise.all(orders.map(async (order) => {
+      const orderItemsStmt = await dbAdapter.prepare(`
         SELECT 
           oi.*, oi.note,
           mi.name as item_name,
@@ -43,12 +44,13 @@ export async function GET(request) {
         LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
         LEFT JOIN set_menus sm ON oi.set_menu_id = sm.id
         WHERE oi.order_id = ?
-      `).all(order.id);
+      `);
+      const orderItems = await orderItemsStmt.all(order.id);
 
       // For set menu items, fetch the included items with quantities
-      const orderItemsWithSetDetails = orderItems.map(item => {
+      const orderItemsWithSetDetails = await Promise.all(orderItems.map(async (item) => {
         if (item.set_menu_id) {
-          const setMenuItems = db.prepare(`
+          const setMenuItemsStmt = await dbAdapter.prepare(`
             SELECT 
               smi.quantity,
               mi.id,
@@ -58,7 +60,8 @@ export async function GET(request) {
             FROM set_menu_items smi
             JOIN menu_items mi ON smi.menu_item_id = mi.id
             WHERE smi.set_menu_id = ?
-          `).all(item.set_menu_id);
+          `);
+          const setMenuItems = await setMenuItemsStmt.all(item.set_menu_id);
           
           return {
             ...item,
@@ -66,13 +69,13 @@ export async function GET(request) {
           };
         }
         return item;
-      });
+      }));
 
       return {
         ...order,
         items: orderItemsWithSetDetails
       };
-    });
+    }));
 
     return NextResponse.json(ordersWithItems);
   } catch (error) {
@@ -100,7 +103,8 @@ export async function POST(request) {
     for (const item of items) {
       if (item.set_menu_id) {
         // For set menu items, use set menu price
-        const setMenu = db.prepare('SELECT price FROM set_menus WHERE id = ?').get(item.set_menu_id);
+        const setMenuStmt = await dbAdapter.prepare('SELECT price FROM set_menus WHERE id = ?');
+        const setMenu = await setMenuStmt.get(item.set_menu_id);
         if (!setMenu) {
           return NextResponse.json(
             { error: `Set menu with ID ${item.set_menu_id} not found` },
@@ -116,7 +120,8 @@ export async function POST(request) {
             { status: 400 }
           );
         }
-        const menuItem = db.prepare('SELECT price FROM menu_items WHERE id = ?').get(item.menu_item_id);
+        const menuItemStmt = await dbAdapter.prepare('SELECT price FROM menu_items WHERE id = ?');
+        const menuItem = await menuItemStmt.get(item.menu_item_id);
         if (!menuItem) {
           return NextResponse.json(
             { error: `Menu item with ID ${item.menu_item_id} not found` },
@@ -128,22 +133,24 @@ export async function POST(request) {
     }
 
     // Create order
-    const insertOrder = db.prepare('INSERT INTO orders (customer_id, total_amount) VALUES (?, ?)');
-    const orderResult = insertOrder.run(customerId, totalAmount);
-    const orderId = orderResult.lastInsertRowid;
+    const insertOrder = await dbAdapter.prepare('INSERT INTO orders (customer_id, total_amount) VALUES (?, ?)');
+    const orderResult = await insertOrder.run(customerId, totalAmount);
+    const orderId = orderResult.lastInsertRowid || orderResult.lastID || (await dbAdapter.query('SELECT LASTVAL() as id'))[0].id;
 
     // Insert order items
-    const insertOrderItem = db.prepare('INSERT INTO order_items (order_id, menu_item_id, quantity, price, set_menu_id, note) VALUES (?, ?, ?, ?, ?, ?)');
+    const insertOrderItem = await dbAdapter.prepare('INSERT INTO order_items (order_id, menu_item_id, quantity, price, set_menu_id, note) VALUES (?, ?, ?, ?, ?, ?)');
 
     for (const item of items) {
       if (item.set_menu_id) {
         // For set menu items, store the set menu price with null menu_item_id
-        const setMenu = db.prepare('SELECT price FROM set_menus WHERE id = ?').get(item.set_menu_id);
-        insertOrderItem.run(orderId, null, item.quantity, setMenu.price, item.set_menu_id, item.note || null);
+        const setMenuStmt = await dbAdapter.prepare('SELECT price FROM set_menus WHERE id = ?');
+        const setMenu = await setMenuStmt.get(item.set_menu_id);
+        await insertOrderItem.run(orderId, null, item.quantity, setMenu.price, item.set_menu_id, item.note || null);
       } else {
         // For regular items, store the menu item price
-        const menuItem = db.prepare('SELECT price FROM menu_items WHERE id = ?').get(item.menu_item_id);
-        insertOrderItem.run(orderId, item.menu_item_id, item.quantity, menuItem.price, null, item.note || null);
+        const menuItemStmt = await dbAdapter.prepare('SELECT price FROM menu_items WHERE id = ?');
+        const menuItem = await menuItemStmt.get(item.menu_item_id);
+        await insertOrderItem.run(orderId, item.menu_item_id, item.quantity, menuItem.price, null, item.note || null);
       }
     }
 

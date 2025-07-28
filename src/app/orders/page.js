@@ -245,7 +245,7 @@ export default function OrdersPage() {
             {searchQuery && (
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-sm text-blue-800">
-                  Showing {filteredOrders.length} result{filteredOrders.length !== 1 ? 's' : ''} for "{searchQuery}"
+                  Showing {filteredOrders.length} result{filteredOrders.length !== 1 ? 's' : ''} for &quot;{searchQuery}&quot;
                 </p>
               </div>
             )}

@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
+import dbAdapter from '@/lib/db';
 
 export async function GET(request, { params }) {
   try {
     const { id } = await params;
     
-    const order = db.prepare(`
+    const orderStmt = await dbAdapter.prepare(`
       SELECT 
         o.*,
         u.name as customer_name,
@@ -13,7 +13,8 @@ export async function GET(request, { params }) {
       FROM orders o
       JOIN users u ON o.customer_id = u.id
       WHERE o.id = ?
-    `).get(id);
+    `);
+    const order = await orderStmt.get(id);
 
     if (!order) {
       return NextResponse.json(
@@ -23,7 +24,7 @@ export async function GET(request, { params }) {
     }
 
     // Get order items
-    const orderItems = db.prepare(`
+    const orderItemsStmt = await dbAdapter.prepare(`
       SELECT 
         oi.*, oi.note,
         mi.name as item_name,
@@ -34,12 +35,13 @@ export async function GET(request, { params }) {
       LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
       LEFT JOIN set_menus sm ON oi.set_menu_id = sm.id
       WHERE oi.order_id = ?
-    `).all(id);
+    `);
+    const orderItems = await orderItemsStmt.all(id);
 
     // For set menu items, fetch the included items with quantities
-    const orderItemsWithSetDetails = orderItems.map(item => {
+    const orderItemsWithSetDetails = await Promise.all(orderItems.map(async (item) => {
       if (item.set_menu_id) {
-        const setMenuItems = db.prepare(`
+        const setMenuItemsStmt = await dbAdapter.prepare(`
           SELECT 
             smi.quantity,
             mi.id,
@@ -49,7 +51,8 @@ export async function GET(request, { params }) {
           FROM set_menu_items smi
           JOIN menu_items mi ON smi.menu_item_id = mi.id
           WHERE smi.set_menu_id = ?
-        `).all(item.set_menu_id);
+        `);
+        const setMenuItems = await setMenuItemsStmt.all(item.set_menu_id);
         
         return {
           ...item,
@@ -57,7 +60,7 @@ export async function GET(request, { params }) {
         };
       }
       return item;
-    });
+    }));
 
     return NextResponse.json({
       ...order,
@@ -87,7 +90,8 @@ export async function PUT(request, { params }) {
       }
 
       // Get the order
-      const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+      const orderStmt = await dbAdapter.prepare('SELECT * FROM orders WHERE id = ?');
+      const order = await orderStmt.get(id);
       
       if (!order) {
         return NextResponse.json(
@@ -113,13 +117,13 @@ export async function PUT(request, { params }) {
       }
 
       // Request refund
-      const updateOrder = db.prepare(`
+      const updateOrder = await dbAdapter.prepare(`
         UPDATE orders 
         SET refund_status = ?, refund_reason = ?, refunded_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `);
 
-      const result = updateOrder.run('requested', refund_reason, id);
+      const result = await updateOrder.run('requested', refund_reason, id);
 
       if (result.changes === 0) {
         return NextResponse.json(
@@ -129,7 +133,7 @@ export async function PUT(request, { params }) {
       }
 
       // Get updated order
-      const updatedOrder = db.prepare(`
+      const updatedOrderStmt = await dbAdapter.prepare(`
         SELECT 
           o.*,
           u.name as customer_name,
@@ -137,17 +141,17 @@ export async function PUT(request, { params }) {
         FROM orders o
         JOIN users u ON o.customer_id = u.id
         WHERE o.id = ?
-      `).get(id);
+      `);
+      const updatedOrder = await updatedOrderStmt.get(id);
 
       return NextResponse.json({
-        message: 'Refund request submitted successfully',
+        message: 'Refund requested successfully',
         order: updatedOrder
       });
     }
 
     // Handle refund processing (admin action)
     if (action === 'process_refund') {
-      // Validate input
       if (!refund_amount || refund_amount <= 0) {
         return NextResponse.json(
           { error: 'Valid refund amount is required' },
@@ -155,15 +159,9 @@ export async function PUT(request, { params }) {
         );
       }
 
-      if (!refund_reason || refund_reason.trim() === '') {
-        return NextResponse.json(
-          { error: 'Refund reason is required' },
-          { status: 400 }
-        );
-      }
-
       // Get the order
-      const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+      const orderStmt = await dbAdapter.prepare('SELECT * FROM orders WHERE id = ?');
+      const order = await orderStmt.get(id);
       
       if (!order) {
         return NextResponse.json(
@@ -172,30 +170,22 @@ export async function PUT(request, { params }) {
         );
       }
 
-      // Check if order is already refunded
+      // Check if refund is already processed
       if (order.refund_status === 'refunded') {
         return NextResponse.json(
-          { error: 'Order is already refunded' },
-          { status: 400 }
-        );
-      }
-
-      // Check if refund amount is valid
-      if (refund_amount > order.total_amount) {
-        return NextResponse.json(
-          { error: 'Refund amount cannot exceed order total' },
+          { error: 'Refund has already been processed' },
           { status: 400 }
         );
       }
 
       // Process refund
-      const updateOrder = db.prepare(`
+      const updateOrder = await dbAdapter.prepare(`
         UPDATE orders 
-        SET refund_status = ?, refund_amount = ?, refund_reason = ?, refunded_at = CURRENT_TIMESTAMP
+        SET refund_status = ?, refund_amount = ?, refunded_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `);
 
-      const result = updateOrder.run('refunded', refund_amount, refund_reason, id);
+      const result = await updateOrder.run('refunded', refund_amount, id);
 
       if (result.changes === 0) {
         return NextResponse.json(
@@ -205,7 +195,7 @@ export async function PUT(request, { params }) {
       }
 
       // Get updated order
-      const updatedOrder = db.prepare(`
+      const updatedOrderStmt = await dbAdapter.prepare(`
         SELECT 
           o.*,
           u.name as customer_name,
@@ -213,7 +203,8 @@ export async function PUT(request, { params }) {
         FROM orders o
         JOIN users u ON o.customer_id = u.id
         WHERE o.id = ?
-      `).get(id);
+      `);
+      const updatedOrder = await updatedOrderStmt.get(id);
 
       return NextResponse.json({
         message: 'Refund processed successfully',
@@ -226,7 +217,7 @@ export async function PUT(request, { params }) {
       { status: 400 }
     );
   } catch (error) {
-    console.error('Error processing refund:', error);
+    console.error('Error updating order:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

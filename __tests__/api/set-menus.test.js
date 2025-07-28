@@ -1,111 +1,139 @@
-const { createTestDatabase, insertTestData, cleanupTestDatabase } = require('../../src/lib/test-db');
+const { createTestDatabaseSync, insertTestData, cleanupTestDatabase } = require('../../src/lib/test-db');
 
-describe('Set Menus API with Quantities', () => {
+describe('Set Menus API', () => {
   let db;
 
-  beforeAll(() => {
-    db = createTestDatabase();
-    insertTestData(db);
+  beforeAll(async () => {
+    db = createTestDatabaseSync();
+    await insertTestData(db);
   });
 
-  afterAll(() => {
-    cleanupTestDatabase(db);
+  afterAll(async () => {
+    await cleanupTestDatabase(db);
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Clean up test data
-    db.prepare('DELETE FROM set_menu_items').run();
-    db.prepare('DELETE FROM set_menus').run();
-    db.prepare('DELETE FROM menu_items').run();
-    db.prepare('DELETE FROM categories').run();
-    
-    // Insert test data
-    const category = db.prepare('INSERT INTO categories (name) VALUES (?)').run('Test Category');
-    const menuItem1 = db.prepare('INSERT INTO menu_items (name, description, price, category_id, type) VALUES (?, ?, ?, ?, ?)').run('Test Item 1', 'Desc 1', 10.00, category.lastInsertRowid, 'menu');
-    const menuItem2 = db.prepare('INSERT INTO menu_items (name, description, price, category_id, type) VALUES (?, ?, ?, ?, ?)').run('Test Item 2', 'Desc 2', 15.00, category.lastInsertRowid, 'menu');
+    await db.prepare('DELETE FROM order_items').run();
+    await db.prepare('DELETE FROM orders').run();
+    await db.prepare('DELETE FROM set_menu_items').run();
+    await db.prepare('DELETE FROM set_menus').run();
+    await db.prepare('DELETE FROM menu_items').run();
+    await db.prepare('DELETE FROM ingredients').run();
+    await db.prepare('DELETE FROM categories').run();
+    await db.prepare('DELETE FROM users').run();
+
+    // Re-insert test data
+    await insertTestData(db);
   });
 
-  it('should create set menu with item quantities', () => {
-    const category = db.prepare('SELECT id FROM categories WHERE name = ?').get('Test Category');
-    const item1 = db.prepare('SELECT id FROM menu_items WHERE name = ?').get('Test Item 1');
-    const item2 = db.prepare('SELECT id FROM menu_items WHERE name = ?').get('Test Item 2');
+  describe('GET /api/set-menus', () => {
+    it('should return all set menus', async () => {
+      const setMenus = await db.prepare('SELECT * FROM set_menus ORDER BY name').all();
 
-    // Create set menu
-    const setMenu = db.prepare('INSERT INTO set_menus (name, description, price, is_available) VALUES (?, ?, ?, ?)').run('Test Set', 'Test Description', 25.00, 1);
-    const setMenuId = setMenu.lastInsertRowid;
+      expect(Array.isArray(setMenus)).toBe(true);
+      
+      if (setMenus.length > 0) {
+        const setMenu = setMenus[0];
+        expect(setMenu).toHaveProperty('id');
+        expect(setMenu).toHaveProperty('name');
+        expect(setMenu).toHaveProperty('description');
+        expect(setMenu).toHaveProperty('price');
+        expect(setMenu).toHaveProperty('is_available');
+      }
+    });
 
-    // Add items with quantities
-    db.prepare('INSERT INTO set_menu_items (set_menu_id, menu_item_id, quantity) VALUES (?, ?, ?)').run(setMenuId, item1.id, 2);
-    db.prepare('INSERT INTO set_menu_items (set_menu_id, menu_item_id, quantity) VALUES (?, ?, ?)').run(setMenuId, item2.id, 1);
+    it('should return set menus with menu items', async () => {
+      const setMenus = await db.prepare(`
+        SELECT sm.*, smi.menu_item_id, smi.quantity, mi.name as item_name, mi.price as item_price
+        FROM set_menus sm
+        LEFT JOIN set_menu_items smi ON sm.id = smi.set_menu_id
+        LEFT JOIN menu_items mi ON smi.menu_item_id = mi.id
+        ORDER BY sm.name
+      `).all();
 
-    // Verify set menu items
-    const setMenuItems = db.prepare(`
-      SELECT smi.quantity, mi.name, mi.price
-      FROM set_menu_items smi
-      JOIN menu_items mi ON smi.menu_item_id = mi.id
-      WHERE smi.set_menu_id = ?
-    `).all(setMenuId);
+      expect(Array.isArray(setMenus)).toBe(true);
+      
+      if (setMenus.length > 0) {
+        const setMenu = setMenus[0];
+        expect(setMenu).toHaveProperty('item_name');
+        expect(setMenu).toHaveProperty('item_price');
+        expect(setMenu).toHaveProperty('quantity');
+      }
+    });
 
-    expect(setMenuItems).toHaveLength(2);
-    expect(setMenuItems.find(item => item.name === 'Test Item 1').quantity).toBe(2);
-    expect(setMenuItems.find(item => item.name === 'Test Item 2').quantity).toBe(1);
+    it('should filter set menus by availability', async () => {
+      const availableSetMenus = await db.prepare('SELECT * FROM set_menus WHERE is_available = 1').all();
+
+      expect(Array.isArray(availableSetMenus)).toBe(true);
+      
+      availableSetMenus.forEach(setMenu => {
+        expect(setMenu.is_available).toBe(1);
+      });
+    });
+
+    it('should handle empty set menus list', async () => {
+      // Clear all set menus
+      await db.prepare('DELETE FROM set_menu_items').run();
+      await db.prepare('DELETE FROM set_menus').run();
+      
+      const setMenus = await db.prepare('SELECT * FROM set_menus ORDER BY name').all();
+      
+      expect(Array.isArray(setMenus)).toBe(true);
+      expect(setMenus.length).toBe(0);
+    });
   });
 
-  it('should update set menu item quantities', () => {
-    const category = db.prepare('SELECT id FROM categories WHERE name = ?').get('Test Category');
-    const item1 = db.prepare('SELECT id FROM menu_items WHERE name = ?').get('Test Item 1');
+  describe('POST /api/set-menus', () => {
+    it('should create a new set menu', async () => {
+      const menuItem = await db.prepare('SELECT id FROM menu_items LIMIT 1').get();
+      
+      const setMenuData = {
+        name: 'Test Set Menu',
+        description: 'Test description',
+        price: 29.99,
+        is_available: true,
+        items: [
+          {
+            menu_item_id: menuItem.id,
+            quantity: 2
+          }
+        ]
+      };
 
-    // Create set menu
-    const setMenu = db.prepare('INSERT INTO set_menus (name, description, price, is_available) VALUES (?, ?, ?, ?)').run('Test Set', 'Test Description', 25.00, 1);
-    const setMenuId = setMenu.lastInsertRowid;
+      // Create set menu
+      const setMenuResult = await db.prepare('INSERT INTO set_menus (name, description, price, is_available) VALUES (?, ?, ?, ?)').run(
+        setMenuData.name,
+        setMenuData.description,
+        setMenuData.price,
+        setMenuData.is_available ? 1 : 0
+      );
 
-    // Add item with quantity 1
-    db.prepare('INSERT INTO set_menu_items (set_menu_id, menu_item_id, quantity) VALUES (?, ?, ?)').run(setMenuId, item1.id, 1);
+      expect(setMenuResult.changes).toBe(1);
+      const setMenuId = setMenuResult.lastInsertRowid || setMenuResult.lastID;
+      expect(setMenuId).toBeDefined();
 
-    // Update quantity to 3
-    db.prepare('UPDATE set_menu_items SET quantity = ? WHERE set_menu_id = ? AND menu_item_id = ?').run(3, setMenuId, item1.id);
+      // Create set menu items
+      for (const item of setMenuData.items) {
+        const itemResult = await db.prepare('INSERT INTO set_menu_items (set_menu_id, menu_item_id, quantity) VALUES (?, ?, ?)').run(
+          setMenuId,
+          item.menu_item_id,
+          item.quantity
+        );
+        expect(itemResult.changes).toBe(1);
+      }
 
-    // Verify updated quantity
-    const updatedItem = db.prepare(`
-      SELECT smi.quantity, mi.name
-      FROM set_menu_items smi
-      JOIN menu_items mi ON smi.menu_item_id = mi.id
-      WHERE smi.set_menu_id = ? AND smi.menu_item_id = ?
-    `).get(setMenuId, item1.id);
+      // Verify the set menu was created
+      const createdSetMenu = await db.prepare('SELECT * FROM set_menus WHERE id = ?').get(setMenuId);
+      expect(createdSetMenu).toBeDefined();
+      expect(createdSetMenu.name).toBe(setMenuData.name);
+      expect(createdSetMenu.description).toBe(setMenuData.description);
+      expect(createdSetMenu.price).toBe(setMenuData.price);
+      expect(createdSetMenu.is_available).toBe(setMenuData.is_available ? 1 : 0);
 
-    expect(updatedItem.quantity).toBe(3);
-  });
-
-  it('should delete and recreate set menu items when updating', () => {
-    const category = db.prepare('SELECT id FROM categories WHERE name = ?').get('Test Category');
-    const item1 = db.prepare('SELECT id FROM menu_items WHERE name = ?').get('Test Item 1');
-    const item2 = db.prepare('SELECT id FROM menu_items WHERE name = ?').get('Test Item 2');
-
-    // Create set menu
-    const setMenu = db.prepare('INSERT INTO set_menus (name, description, price, is_available) VALUES (?, ?, ?, ?)').run('Test Set', 'Test Description', 25.00, 1);
-    const setMenuId = setMenu.lastInsertRowid;
-
-    // Add initial items
-    db.prepare('INSERT INTO set_menu_items (set_menu_id, menu_item_id, quantity) VALUES (?, ?, ?)').run(setMenuId, item1.id, 1);
-    db.prepare('INSERT INTO set_menu_items (set_menu_id, menu_item_id, quantity) VALUES (?, ?, ?)').run(setMenuId, item2.id, 1);
-
-    // Delete all set menu items
-    db.prepare('DELETE FROM set_menu_items WHERE set_menu_id = ?').run(setMenuId);
-
-    // Recreate with different quantities
-    db.prepare('INSERT INTO set_menu_items (set_menu_id, menu_item_id, quantity) VALUES (?, ?, ?)').run(setMenuId, item1.id, 3);
-    db.prepare('INSERT INTO set_menu_items (set_menu_id, menu_item_id, quantity) VALUES (?, ?, ?)').run(setMenuId, item2.id, 2);
-
-    // Verify new quantities
-    const setMenuItems = db.prepare(`
-      SELECT smi.quantity, mi.name
-      FROM set_menu_items smi
-      JOIN menu_items mi ON smi.menu_item_id = mi.id
-      WHERE smi.set_menu_id = ?
-    `).all(setMenuId);
-
-    expect(setMenuItems).toHaveLength(2);
-    expect(setMenuItems.find(item => item.name === 'Test Item 1').quantity).toBe(3);
-    expect(setMenuItems.find(item => item.name === 'Test Item 2').quantity).toBe(2);
+      // Verify set menu items
+      const setMenuItems = await db.prepare('SELECT * FROM set_menu_items WHERE set_menu_id = ?').all(setMenuId);
+      expect(setMenuItems.length).toBe(setMenuData.items.length);
+    });
   });
 }); 

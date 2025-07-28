@@ -1,4 +1,4 @@
-import db from '@/lib/db';
+import dbAdapter from '@/lib/db';
 
 export async function GET(request) {
   try {
@@ -51,52 +51,52 @@ export async function GET(request) {
 // Overview data - key metrics
 async function getOverviewData(startDate) {
   // Total revenue
-  const revenueQuery = db.prepare(`
+  const revenueStmt = await dbAdapter.prepare(`
     SELECT COALESCE(SUM(total_amount), 0) as total_revenue
     FROM orders 
     WHERE DATE(created_at) >= ? AND status != 'cancelled'
   `);
-  const revenue = revenueQuery.get(startDate);
+  const revenue = await revenueStmt.get(startDate);
 
   // Total orders
-  const ordersQuery = db.prepare(`
+  const ordersStmt = await dbAdapter.prepare(`
     SELECT COUNT(*) as total_orders
     FROM orders 
     WHERE DATE(created_at) >= ? AND status != 'cancelled'
   `);
-  const orders = ordersQuery.get(startDate);
+  const orders = await ordersStmt.get(startDate);
 
   // Average order value
-  const avgOrderQuery = db.prepare(`
+  const avgOrderStmt = await dbAdapter.prepare(`
     SELECT COALESCE(AVG(total_amount), 0) as avg_order_value
     FROM orders 
     WHERE DATE(created_at) >= ? AND status != 'cancelled'
   `);
-  const avgOrder = avgOrderQuery.get(startDate);
+  const avgOrder = await avgOrderStmt.get(startDate);
 
   // Active customers
-  const customersQuery = db.prepare(`
+  const customersStmt = await dbAdapter.prepare(`
     SELECT COUNT(DISTINCT customer_id) as active_customers
     FROM orders 
     WHERE DATE(created_at) >= ? AND status != 'cancelled'
   `);
-  const customers = customersQuery.get(startDate);
+  const customers = await customersStmt.get(startDate);
 
   // Low stock items
-  const lowStockQuery = db.prepare(`
+  const lowStockStmt = await dbAdapter.prepare(`
     SELECT COUNT(*) as low_stock_items
     FROM ingredients 
     WHERE stock_quantity <= min_stock_level
   `);
-  const lowStock = lowStockQuery.get();
+  const lowStock = await lowStockStmt.get();
 
   // Pending orders
-  const pendingQuery = db.prepare(`
+  const pendingStmt = await dbAdapter.prepare(`
     SELECT COUNT(*) as pending_orders
     FROM orders 
     WHERE status IN ('pending', 'preparing')
   `);
-  const pending = pendingQuery.get();
+  const pending = await pendingStmt.get();
 
   return {
     revenue: revenue.total_revenue,
@@ -135,7 +135,7 @@ async function getSalesData(startDate, period) {
       dateFormat = '%Y-%m-%d';
   }
 
-  const salesQuery = db.prepare(`
+  const salesStmt = await dbAdapter.prepare(`
     SELECT 
       ${groupBy} as date,
       COUNT(*) as orders,
@@ -146,10 +146,10 @@ async function getSalesData(startDate, period) {
     ORDER BY date
   `);
   
-  const sales = salesQuery.all(startDate);
+  const sales = await salesStmt.all(startDate);
 
   // Status distribution
-  const statusQuery = db.prepare(`
+  const statusStmt = await dbAdapter.prepare(`
     SELECT 
       status,
       COUNT(*) as count,
@@ -159,7 +159,7 @@ async function getSalesData(startDate, period) {
     GROUP BY status
   `);
   
-  const statusDistribution = statusQuery.all(startDate);
+  const statusDistribution = await statusStmt.all(startDate);
 
   return {
     timeSeries: sales,
@@ -170,7 +170,7 @@ async function getSalesData(startDate, period) {
 // Popular items analysis
 async function getItemsData(startDate) {
   // Most popular individual items
-  const popularQuery = db.prepare(`
+  const popularStmt = await dbAdapter.prepare(`
     SELECT 
       mi.name,
       mi.price,
@@ -191,10 +191,10 @@ async function getItemsData(startDate) {
     LIMIT 10
   `);
   
-  const popularItems = popularQuery.all(startDate);
+  const popularItems = await popularStmt.all(startDate);
 
   // Most popular set menus
-  const popularSetMenusQuery = db.prepare(`
+  const popularSetMenusStmt = await dbAdapter.prepare(`
     SELECT 
       sm.name,
       sm.price,
@@ -213,7 +213,7 @@ async function getItemsData(startDate) {
     LIMIT 10
   `);
   
-  const popularSetMenus = popularSetMenusQuery.all(startDate);
+  const popularSetMenus = await popularSetMenusStmt.all(startDate);
 
   // Combine and sort by total quantity
   const allPopularItems = [...popularItems, ...popularSetMenus]
@@ -221,7 +221,7 @@ async function getItemsData(startDate) {
     .slice(0, 10);
 
   // Category performance (including set menus)
-  const categoryQuery = db.prepare(`
+  const categoryStmt = await dbAdapter.prepare(`
     SELECT 
       c.name as category,
       COUNT(DISTINCT o.id) as orders,
@@ -248,7 +248,7 @@ async function getItemsData(startDate) {
       AND (o.status IS NULL OR o.status != 'cancelled')
   `);
   
-  const categoryPerformance = categoryQuery.all(startDate, startDate);
+  const categoryPerformance = await categoryStmt.all(startDate, startDate);
 
   return {
     popularItems: allPopularItems,
@@ -259,7 +259,7 @@ async function getItemsData(startDate) {
 // Customer analytics
 async function getCustomersData(startDate) {
   // Top customers
-  const topCustomersQuery = db.prepare(`
+  const topCustomersStmt = await dbAdapter.prepare(`
     SELECT 
       u.name,
       u.email,
@@ -277,7 +277,7 @@ async function getCustomersData(startDate) {
     LIMIT 10
   `);
   
-  const topCustomers = topCustomersQuery.all(startDate);
+  const topCustomers = await topCustomersStmt.all(startDate);
 
   // Customer acquisition over time (simplified since users table doesn't have created_at)
   // For now, we'll use a placeholder since we can't track when customers were created
@@ -292,7 +292,7 @@ async function getCustomersData(startDate) {
 // Inventory insights
 async function getInventoryData() {
   // Low stock items
-  const lowStockQuery = db.prepare(`
+  const lowStockStmt = await dbAdapter.prepare(`
     SELECT 
       name,
       description,
@@ -305,10 +305,10 @@ async function getInventoryData() {
     ORDER BY stock_percentage ASC
   `);
   
-  const lowStockItems = lowStockQuery.all();
+  const lowStockItems = await lowStockStmt.all();
 
   // Stock value
-  const stockValueQuery = db.prepare(`
+  const stockValueStmt = await dbAdapter.prepare(`
     SELECT 
       COUNT(*) as total_items,
       SUM(stock_quantity) as total_quantity,
@@ -316,10 +316,10 @@ async function getInventoryData() {
     FROM ingredients
   `);
   
-  const stockValue = stockValueQuery.get();
+  const stockValue = await stockValueStmt.get();
 
   // Stock turnover (simplified - would need purchase history for accurate calculation)
-  const turnoverQuery = db.prepare(`
+  const turnoverStmt = await dbAdapter.prepare(`
     SELECT 
       i.name,
       i.stock_quantity,
@@ -334,7 +334,7 @@ async function getInventoryData() {
     LIMIT 10
   `);
   
-  const stockTurnover = turnoverQuery.all();
+  const stockTurnover = await turnoverStmt.all();
 
   return {
     lowStockItems,

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
+import dbAdapter from '@/lib/db';
 
 export async function GET(request) {
   try {
@@ -16,7 +16,7 @@ export async function GET(request) {
     `;
     const conditions = [];
     if (!showAll) {
-      conditions.push('mi.is_available = 1');
+      conditions.push('mi.is_available = true');
     }
     if (type) {
       conditions.push('mi.type = ?');
@@ -25,9 +25,11 @@ export async function GET(request) {
       query += ' WHERE ' + conditions.join(' AND ');
     }
     query += ` ORDER BY c.name, mi.name`;
+    
+    const stmt = await dbAdapter.prepare(query);
     const menuItems = type
-      ? db.prepare(query).all(type)
-      : db.prepare(query).all();
+      ? await stmt.all(type)
+      : await stmt.all();
     return NextResponse.json(menuItems);
   } catch (error) {
     console.error('Error fetching menu:', error);
@@ -49,17 +51,17 @@ export async function POST(request) {
       );
     }
 
-    const insertMenuItem = db.prepare(`
+    const insertMenuItem = await dbAdapter.prepare(`
       INSERT INTO menu_items (name, description, price, category_id, image_url, type, is_available)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
     
-    const result = insertMenuItem.run(name, description, price, category_id, image_url || null, type, is_available ? 1 : 0);
+    const result = await insertMenuItem.run(name, description, price, category_id, image_url || null, type, is_available ? true : false);
 
     return NextResponse.json(
       { 
         message: 'Menu item added successfully',
-        id: result.lastInsertRowid
+        id: result.lastInsertRowid || result.lastID || (await dbAdapter.query('SELECT LASTVAL() as id'))[0].id
       },
       { status: 201 }
     );

@@ -189,16 +189,21 @@ export default function StaffPage() {
     );
   }
 
-  const filteredOrders = orders.filter(order =>
+  const safeOrders = Array.isArray(orders) ? orders : [];
+  const safeIngredients = Array.isArray(ingredients) ? ingredients : [];
+  const safeMenuItems = Array.isArray(menuItems) ? menuItems : [];
+  const safeCategories = Array.isArray(categories) ? categories : [];
+
+  const filteredOrders = safeOrders.filter(order =>
     order.customer_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     order.id.toString().includes(searchQuery)
   );
 
-  const filteredIngredients = ingredients.filter(ingredient =>
+  const filteredIngredients = safeIngredients.filter(ingredient =>
     ingredient.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const filteredMenuItems = menuItems.filter(item => {
+  const filteredMenuItems = safeMenuItems.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
     
@@ -206,18 +211,17 @@ export default function StaffPage() {
       (selectedCategory === 'goods' && item.type === 'goods') ||
       (selectedCategory === 'menu' && (item.type === 'menu' || item.type === 'free')) ||
       (selectedCategory !== 'all' && selectedCategory !== 'goods' && selectedCategory !== 'menu' && 
-       categories.find(cat => cat.id === parseInt(selectedCategory))?.id === item.category_id);
+       safeCategories.find(cat => cat.id === parseInt(selectedCategory))?.id === item.category_id);
     
     return matchesSearch && matchesCategory;
   });
 
-  const filteredSetMenus = setMenus.filter(setMenu => {
+  const safeSetMenus = Array.isArray(setMenus) ? setMenus : [];
+  const filteredSetMenus = safeSetMenus.filter(setMenu => {
     const matchesSearch = setMenu.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (setMenu.description && setMenu.description.toLowerCase().includes(searchQuery.toLowerCase()));
     
-    const matchesCategory = selectedCategory === 'all' || 
-      (selectedCategory !== 'all' && selectedCategory !== 'goods' && selectedCategory !== 'menu' && 
-       categories.find(cat => cat.id === parseInt(selectedCategory))?.id === setMenu.category_id);
+    const matchesCategory = selectedCategory === 'all';
     
     return matchesSearch && matchesCategory;
   });
@@ -226,10 +230,10 @@ export default function StaffPage() {
   const goodsItems = filteredMenuItems.filter(item => item.type === 'goods');
   const foodMenuItems = filteredMenuItems.filter(item => item.type === 'menu' || item.type === 'free');
 
-  const pendingOrders = orders.filter(order => order.status === 'pending').length;
-  const preparingOrders = orders.filter(order => order.status === 'preparing').length;
-  const readyOrders = orders.filter(order => order.status === 'ready').length;
-  const lowStockIngredients = ingredients.filter(ingredient => 
+  const pendingOrders = safeOrders.filter(order => order.status === 'pending').length;
+  const preparingOrders = safeOrders.filter(order => order.status === 'preparing').length;
+  const readyOrders = safeOrders.filter(order => order.status === 'ready').length;
+  const lowStockIngredients = safeIngredients.filter(ingredient => 
     ingredient.stock_quantity <= ingredient.min_stock_level
   ).length;
 
@@ -366,7 +370,7 @@ export default function StaffPage() {
                   >
                     Goods
                   </button>
-                  {categories.filter(cat => cat.name !== 'Goods').map(category => (
+                  {safeCategories.filter(cat => cat.name !== 'Goods').map(category => (
                     <button
                       key={category.id}
                       onClick={() => setSelectedCategory(category.id.toString())}
@@ -398,7 +402,7 @@ export default function StaffPage() {
                         <p className="text-sm text-gray-600 mb-2">{item.description}</p>
                         <div className="flex justify-between items-center">
                           <span className="text-xs text-gray-500">
-                            {categories.find(cat => cat.id === item.category_id)?.name || 'Unknown'} • {item.type}
+                            {safeCategories.find(cat => cat.id === item.category_id)?.name || 'Unknown'} • {item.type}
                           </span>
                           <button
                             onClick={() => handleToggleMenuItemAvailability(item.id, !item.is_available)}
@@ -433,7 +437,7 @@ export default function StaffPage() {
                         <p className="text-sm text-gray-600 mb-2">{item.description}</p>
                         <div className="flex justify-between items-center">
                           <span className="text-xs text-gray-500">
-                            {categories.find(cat => cat.id === item.category_id)?.name || 'Unknown'} • {item.type}
+                            {safeCategories.find(cat => cat.id === item.category_id)?.name || 'Unknown'} • {item.type}
                           </span>
                           <button
                             onClick={() => handleToggleMenuItemAvailability(item.id, !item.is_available)}

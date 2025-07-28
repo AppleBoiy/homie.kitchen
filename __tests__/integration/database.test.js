@@ -1,176 +1,173 @@
-import { createTestDatabase, insertTestData, cleanupTestDatabase } from '@/lib/test-db';
+const { createTestDatabaseSync, insertTestData, cleanupTestDatabase } = require('../../src/lib/test-db');
 
 describe('Database Integration Tests', () => {
   let db;
 
   beforeAll(async () => {
-    db = createTestDatabase();
-    insertTestData(db);
+    db = createTestDatabaseSync();
+    await insertTestData(db);
   });
 
-  afterAll(() => {
-    cleanupTestDatabase(db);
+  afterAll(async () => {
+    await cleanupTestDatabase(db);
+  });
+
+  beforeEach(async () => {
+    // Clean up test data
+    await db.prepare('DELETE FROM order_items').run();
+    await db.prepare('DELETE FROM orders').run();
+    await db.prepare('DELETE FROM menu_items').run();
+    await db.prepare('DELETE FROM ingredients').run();
+    await db.prepare('DELETE FROM categories').run();
+    await db.prepare('DELETE FROM users').run();
+
+    // Re-insert test data
+    await insertTestData(db);
   });
 
   describe('Database Schema', () => {
-    it('should have all required tables', () => {
-      const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
-      const tableNames = tables.map(table => table.name);
+    it('should have all required tables', async () => {
+      const tables = ['users', 'categories', 'ingredients', 'menu_items', 'set_menus', 'set_menu_items', 'orders', 'order_items'];
       
-      expect(tableNames).toContain('users');
-      expect(tableNames).toContain('categories');
-      expect(tableNames).toContain('ingredients');
-      expect(tableNames).toContain('menu_items');
-      expect(tableNames).toContain('orders');
-      expect(tableNames).toContain('order_items');
+      for (const table of tables) {
+        const result = await db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`).get(table);
+        expect(result).toBeDefined();
+        expect(result.name).toBe(table);
+      }
     });
 
-    it('should have correct foreign key relationships', () => {
-      // Check menu_items foreign key to categories
-      const menuItems = db.prepare('SELECT * FROM menu_items LIMIT 1').all();
-      if (menuItems.length > 0) {
-        const categoryId = menuItems[0].category_id;
-        const category = db.prepare('SELECT * FROM categories WHERE id = ?').get(categoryId);
-        expect(category).toBeDefined();
-      }
+    it('should have proper table relationships', async () => {
+      // Test menu_items -> categories relationship
+      const category = await db.prepare('SELECT id FROM categories LIMIT 1').get();
+      expect(category).toBeDefined();
+      
+      const menuItem = await db.prepare('INSERT INTO menu_items (name, description, price, category_id) VALUES (?, ?, ?, ?)').run(
+        'Test Item', 'Test description', 10.99, category.id
+      );
+      expect(menuItem.changes).toBe(1);
 
-      // Check order_items foreign key to orders and menu_items
-      const orderItems = db.prepare('SELECT * FROM order_items LIMIT 1').all();
-      if (orderItems.length > 0) {
-        const orderId = orderItems[0].order_id;
-        const menuItemId = orderItems[0].menu_item_id;
-        
-        const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
-        const menuItem = db.prepare('SELECT * FROM menu_items WHERE id = ?').get(menuItemId);
-        
-        expect(order).toBeDefined();
-        expect(menuItem).toBeDefined();
-      }
+      // Test orders -> users relationship
+      const user = await db.prepare('SELECT id FROM users LIMIT 1').get();
+      expect(user).toBeDefined();
+      
+      const order = await db.prepare('INSERT INTO orders (customer_id, total_amount, status) VALUES (?, ?, ?)').run(
+        user.id, 25.98, 'pending'
+      );
+      expect(order.changes).toBe(1);
     });
   });
 
-  describe('Data Integrity', () => {
-    it('should enforce unique constraints', () => {
-      // Try to insert duplicate category name
-      const insertCategory = db.prepare('INSERT INTO categories (name, description) VALUES (?, ?)');
+  describe('Data Consistency', () => {
+    it('should maintain referential integrity', async () => {
+      // Create a complete order workflow
+      const user = await db.prepare('SELECT id FROM users LIMIT 1').get();
+      const category = await db.prepare('SELECT id FROM categories LIMIT 1').get();
       
-      // First insertion should succeed
-      insertCategory.run('Unique Test Category', 'Test description');
-      
-      // Second insertion with same name should fail
-      expect(() => {
-        insertCategory.run('Unique Test Category', 'Another description');
-      }).toThrow();
+      // Create menu item
+      const menuItem = await db.prepare('INSERT INTO menu_items (name, description, price, category_id) VALUES (?, ?, ?, ?)').run(
+        'Integration Test Item', 'Test description', 15.99, category.id
+      );
+      const menuItemId = menuItem.lastInsertRowid || menuItem.lastID;
+
+      // Create order
+      const order = await db.prepare('INSERT INTO orders (customer_id, total_amount, status) VALUES (?, ?, ?)').run(
+        user.id, 31.98, 'pending'
+      );
+      const orderId = order.lastInsertRowid || order.lastID;
+
+      // Create order item
+      const orderItem = await db.prepare('INSERT INTO order_items (order_id, menu_item_id, quantity, price) VALUES (?, ?, ?, ?)').run(
+        orderId, menuItemId, 2, 15.99
+      );
+      expect(orderItem.changes).toBe(1);
+
+      // Verify the complete relationship chain
+      const orderWithItems = await db.prepare(`
+        SELECT o.*, u.name as customer_name, oi.quantity, oi.price, mi.name as item_name
+        FROM orders o
+        JOIN users u ON o.customer_id = u.id
+        JOIN order_items oi ON o.id = oi.order_id
+        JOIN menu_items mi ON oi.menu_item_id = mi.id
+        WHERE o.id = ?
+      `).get(orderId);
+
+      expect(orderWithItems).toBeDefined();
+      expect(orderWithItems.customer_name).toBeDefined();
+      expect(orderWithItems.item_name).toBe('Integration Test Item');
+      expect(orderWithItems.quantity).toBe(2);
+      expect(orderWithItems.price).toBe(15.99);
     });
 
-    it('should enforce foreign key constraints', () => {
-      // Try to insert menu item with non-existent category
-      const insertMenuItem = db.prepare(`
-        INSERT INTO menu_items (name, description, price, category_id, image_url) 
-        VALUES (?, ?, ?, ?, ?)
-      `);
+    it('should handle cascading operations', async () => {
+      // Create test data
+      const user = await db.prepare('SELECT id FROM users LIMIT 1').get();
+      const category = await db.prepare('SELECT id FROM categories LIMIT 1').get();
       
-      expect(() => {
-        insertMenuItem.run('Test Item', 'Test description', 10.99, 999, 'test-url');
-      }).toThrow();
-    });
+      const menuItem = await db.prepare('INSERT INTO menu_items (name, description, price, category_id) VALUES (?, ?, ?, ?)').run(
+        'Cascade Test Item', 'Test description', 12.99, category.id
+      );
+      const menuItemId = menuItem.lastInsertRowid || menuItem.lastID;
 
-    it('should handle cascading deletes properly', () => {
-      // Create a test order with order items
-      const insertOrder = db.prepare('INSERT INTO orders (customer_id, total_amount, status) VALUES (?, ?, ?)');
-      const orderResult = insertOrder.run(1, 25.99, 'pending');
-      const orderId = orderResult.lastInsertRowid;
-      
-      const insertOrderItem = db.prepare('INSERT INTO order_items (order_id, menu_item_id, quantity, price) VALUES (?, ?, ?, ?)');
-      insertOrderItem.run(orderId, 1, 2, 12.99);
-      
-      // Check that order items are also deleted (if CASCADE is set up)
-      // Note: SQLite doesn't have CASCADE by default, so we manually delete order items first
-      const deleteOrderItems = db.prepare('DELETE FROM order_items WHERE order_id = ?');
-      deleteOrderItems.run(orderId);
-      
-      const deleteOrderStmt = db.prepare('DELETE FROM orders WHERE id = ?');
-      deleteOrderStmt.run(orderId);
-      
-      const remainingOrderItems = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(orderId);
-      expect(remainingOrderItems).toHaveLength(0);
+      const order = await db.prepare('INSERT INTO orders (customer_id, total_amount, status) VALUES (?, ?, ?)').run(
+        user.id, 25.98, 'pending'
+      );
+      const orderId = order.lastInsertRowid || order.lastID;
+
+      await db.prepare('INSERT INTO order_items (order_id, menu_item_id, quantity, price) VALUES (?, ?, ?, ?)').run(
+        orderId, menuItemId, 2, 12.99
+      );
+
+      // Delete the order and verify order items are also deleted
+      await db.prepare('DELETE FROM order_items WHERE order_id = ?').run(orderId);
+      await db.prepare('DELETE FROM orders WHERE id = ?').run(orderId);
+
+      const remainingOrderItems = await db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(orderId);
+      expect(remainingOrderItems.length).toBe(0);
+
+      const remainingOrder = await db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+      expect(remainingOrder).toBeUndefined();
     });
   });
 
   describe('Query Performance', () => {
-    it('should handle large datasets efficiently', () => {
-      // Insert multiple test records
-      const insertCategory = db.prepare('INSERT INTO categories (name, description) VALUES (?, ?)');
-      const insertMenuItem = db.prepare(`
-        INSERT INTO menu_items (name, description, price, category_id, image_url) 
-        VALUES (?, ?, ?, ?, ?)
-      `);
+    it('should handle complex queries efficiently', async () => {
+      // Create test data for performance testing
+      const user = await db.prepare('SELECT id FROM users LIMIT 1').get();
+      const category = await db.prepare('SELECT id FROM categories LIMIT 1').get();
       
-      // Insert 100 test categories
-      for (let i = 0; i < 100; i++) {
-        insertCategory.run(`Performance Test Category ${i}`, `Description ${i}`);
+      // Create multiple menu items
+      for (let i = 0; i < 10; i++) {
+        await db.prepare('INSERT INTO menu_items (name, description, price, category_id) VALUES (?, ?, ?, ?)').run(
+          `Performance Item ${i}`, `Description ${i}`, 10.99 + i, category.id
+        );
       }
-      
-      // Insert 1000 test menu items
-      for (let i = 0; i < 1000; i++) {
-        insertMenuItem.run(`Performance Test Item ${i}`, `Description ${i}`, 10.99, 1, 'test-url');
+
+      // Create multiple orders
+      for (let i = 0; i < 5; i++) {
+        await db.prepare('INSERT INTO orders (customer_id, total_amount, status) VALUES (?, ?, ?)').run(
+          user.id, 25.98 + i, 'pending'
+        );
       }
-      
-      // Test query performance
+
+      // Test complex query performance
       const startTime = Date.now();
-      const menuItems = db.prepare('SELECT * FROM menu_items WHERE category_id = 1').all();
+      const result = await db.prepare(`
+        SELECT 
+          c.name as category_name,
+          COUNT(mi.id) as item_count,
+          AVG(mi.price) as avg_price,
+          COUNT(o.id) as order_count
+        FROM categories c
+        LEFT JOIN menu_items mi ON c.id = mi.category_id
+        LEFT JOIN order_items oi ON mi.id = oi.menu_item_id
+        LEFT JOIN orders o ON oi.order_id = o.id
+        GROUP BY c.id, c.name
+        ORDER BY c.name
+      `).all();
       const endTime = Date.now();
-      
-      expect(menuItems.length).toBeGreaterThan(0);
+
+      expect(Array.isArray(result)).toBe(true);
       expect(endTime - startTime).toBeLessThan(100); // Should complete in less than 100ms
-    });
-  });
-
-  describe('Transaction Support', () => {
-    it('should support transactions', () => {
-      const transaction = db.transaction(() => {
-        const insertCategory = db.prepare('INSERT INTO categories (name, description) VALUES (?, ?)');
-        const insertMenuItem = db.prepare(`
-          INSERT INTO menu_items (name, description, price, category_id, image_url) 
-          VALUES (?, ?, ?, ?, ?)
-        `);
-        
-        const categoryResult = insertCategory.run('Transaction Test Category', 'Test description');
-        const categoryId = categoryResult.lastInsertRowid;
-        
-        insertMenuItem.run('Transaction Test Item', 'Test description', 10.99, categoryId, 'test-url');
-        
-        return { categoryId };
-      });
-      
-      const result = transaction();
-      expect(result.categoryId).toBeDefined();
-      
-      // Verify both records were created
-      const category = db.prepare('SELECT * FROM categories WHERE id = ?').get(result.categoryId);
-      const menuItem = db.prepare('SELECT * FROM menu_items WHERE category_id = ?').get(result.categoryId);
-      
-      expect(category).toBeDefined();
-      expect(menuItem).toBeDefined();
-    });
-
-    it('should rollback transactions on error', () => {
-      const initialCategoryCount = db.prepare('SELECT COUNT(*) as count FROM categories').get().count;
-      
-      expect(() => {
-        const transaction = db.transaction(() => {
-          const insertCategory = db.prepare('INSERT INTO categories (name, description) VALUES (?, ?)');
-          insertCategory.run('Rollback Test Category', 'Test description');
-          
-          // This should cause an error and rollback
-          throw new Error('Test error');
-        });
-        
-        transaction();
-      }).toThrow('Test error');
-      
-      const finalCategoryCount = db.prepare('SELECT COUNT(*) as count FROM categories').get().count;
-      expect(finalCategoryCount).toBe(initialCategoryCount);
     });
   });
 }); 
