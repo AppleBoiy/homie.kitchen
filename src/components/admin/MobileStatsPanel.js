@@ -1,4 +1,4 @@
-import { X, Package, Clock, DollarSign, TrendingUp, Warehouse } from 'lucide-react';
+import { X, Package, Clock, DollarSign, TrendingUp, Warehouse, ShoppingBag } from 'lucide-react';
 
 export default function MobileStatsPanel({ open, onClose, stats }) {
   if (!open) return null;
@@ -36,7 +36,14 @@ export default function MobileStatsPanel({ open, onClose, stats }) {
           <TrendingUp className="w-8 h-8 text-orange-600" />
           <div>
             <p className="text-xs font-medium text-gray-600">Menu Items</p>
-            <p className="text-xl font-bold text-gray-800">{stats.totalItems}</p>
+            <p className="text-xl font-bold text-gray-800">{stats.totalMenuItems}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg shadow">
+          <ShoppingBag className="w-8 h-8 text-blue-600" />
+          <div>
+            <p className="text-xs font-medium text-gray-600">Goods Items</p>
+            <p className="text-xl font-bold text-gray-800">{stats.totalGoodsItems}</p>
           </div>
         </div>
         <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg shadow">

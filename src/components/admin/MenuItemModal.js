@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-export default function MenuItemModal({ open, onClose, onSubmit, categories, initialData, loading }) {
+export default function MenuItemModal({ open, onClose, onSubmit, categories, initialData, loading, defaultType = 'menu' }) {
   const [form, setForm] = useState({
     name: '',
     description: '',
@@ -8,7 +8,7 @@ export default function MenuItemModal({ open, onClose, onSubmit, categories, ini
     category_id: '',
     image_url: '',
     is_available: true,
-    type: 'menu'
+    type: defaultType
   });
 
   useEffect(() => {
@@ -23,9 +23,9 @@ export default function MenuItemModal({ open, onClose, onSubmit, categories, ini
         type: initialData.type || 'menu'
       });
     } else {
-      setForm({ name: '', description: '', price: '', category_id: '', image_url: '', is_available: true, type: 'menu' });
+      setForm({ name: '', description: '', price: '', category_id: '', image_url: '', is_available: true, type: defaultType });
     }
-  }, [initialData, open]);
+  }, [initialData, open, defaultType]);
 
   if (!open) return null;
 

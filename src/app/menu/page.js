@@ -59,6 +59,8 @@ export default function MenuPage() {
     fetchData();
   }, []);
 
+
+
   // Fetch active orders and set up real-time updates
   useEffect(() => {
     if (!user) return;
@@ -272,14 +274,15 @@ export default function MenuPage() {
     setImageErrors(prev => new Set(prev).add(itemId));
   };
 
-  // Filter items based on category and search query
+  // Filter items based on category and search query (include goods items for customer ordering)
   const filteredItems = menuItems.filter(item => {
     const matchesCategory = selectedCategory === 'all' || item.category_id === parseInt(selectedCategory);
     const matchesSearch = searchQuery === '' || 
       safeIncludes(item.name, searchQuery) ||
       (item.description && safeIncludes(item.description, searchQuery));
+    const isOrderable = item.type === 'menu' || item.type === 'free' || item.type === 'goods';
     
-    return matchesCategory && matchesSearch;
+    return matchesCategory && matchesSearch && isOrderable;
   });
 
   useEffect(() => {
@@ -354,57 +357,126 @@ export default function MenuPage() {
         {searchQuery && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-800">
-              Showing {filteredItems.length} result{filteredItems.length !== 1 ? 's' : ''} for "{searchQuery}"
+              {(() => {
+                if (selectedCategory === 'set') {
+                  const matchingSetMenus = setMenus.filter(setMenu => 
+                    safeIncludes(setMenu.name, searchQuery) ||
+                    (setMenu.description && safeIncludes(setMenu.description, searchQuery))
+                  );
+                  return `Showing ${matchingSetMenus.length} result${matchingSetMenus.length !== 1 ? 's' : ''} for "${searchQuery}"`;
+                } else if (selectedCategory === 'all') {
+                  const matchingSetMenus = setMenus.filter(setMenu => 
+                    safeIncludes(setMenu.name, searchQuery) ||
+                    (setMenu.description && safeIncludes(setMenu.description, searchQuery))
+                  );
+                  return `Showing ${filteredItems.length + matchingSetMenus.length} result${(filteredItems.length + matchingSetMenus.length) !== 1 ? 's' : ''} for "${searchQuery}"`;
+                } else {
+                  return `Showing ${filteredItems.length} result${filteredItems.length !== 1 ? 's' : ''} for "${searchQuery}"`;
+                }
+              })()}
             </p>
           </div>
         )}
         {/* No more floating Set Menus section. Integrate set menus into the grid below. */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 mb-20 sm:mb-24">
           {selectedCategory === 'set' ? (
-            setMenus.length === 0 ? (
-              <div className="col-span-full text-center py-12">
-                <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z" /></svg>
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">No set menus found</h3>
-              </div>
-            ) : (
-              setMenus.map(setMenu => (
-                <SetMenuCard
-                  key={setMenu.id}
-                  setMenu={setMenu}
-                  onAddToCart={addSetMenuToCart}
-                  cart={cart}
-                />
-              ))
-            )
+            (() => {
+              const filteredSetMenus = searchQuery ? setMenus.filter(setMenu => 
+                safeIncludes(setMenu.name, searchQuery) ||
+                (setMenu.description && safeIncludes(setMenu.description, searchQuery))
+              ) : setMenus;
+              
+              if (filteredSetMenus.length === 0) {
+                return (
+                  <div className="col-span-full text-center py-12">
+                    <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z" /></svg>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                      {searchQuery ? 'No set menus found matching your search' : 'No set menus found'}
+                    </h3>
+                  </div>
+                );
+              }
+              return (
+                <>
+                  {filteredSetMenus.map(setMenu => (
+                    <SetMenuCard
+                      key={setMenu.id}
+                      setMenu={setMenu}
+                      onAddToCart={addSetMenuToCart}
+                      cart={cart}
+                    />
+                  ))}
+                </>
+              );
+            })()
           ) : (
-            // All Items or category: show both menu items and set menus
-            (filteredItems.length === 0 && setMenus.length === 0) ? (
-              <div className="col-span-full text-center py-12">
-                <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z" /></svg>
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">No items found</h3>
-              </div>
-            ) : (
-              <>
-                {filteredItems.map(item => (
-                  <MenuItemCard
-                    key={item.id}
-                    item={item}
-                    hasImageError={imageErrors.has(item.id)}
-                    onAddToCart={addToCart}
-                    onImageError={handleImageError}
-                    cart={cart}
-                  />
-                ))}
-                {setMenus.map(setMenu => (
-                  <SetMenuCard
-                    key={setMenu.id}
-                    setMenu={setMenu}
-                    onAddToCart={addSetMenuToCart}
-                    cart={cart}
-                  />
-                ))}
-              </>
-            )
+            // Category-specific or All Items: show appropriate items
+            (() => {
+              if (selectedCategory === 'all') {
+                // All Items: show both menu items and set menus
+                const filteredSetMenus = searchQuery ? setMenus.filter(setMenu => 
+                  safeIncludes(setMenu.name, searchQuery) ||
+                  (setMenu.description && safeIncludes(setMenu.description, searchQuery))
+                ) : setMenus;
+                
+                if (filteredItems.length === 0 && filteredSetMenus.length === 0) {
+                  return (
+                    <div className="col-span-full text-center py-12">
+                      <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z" /></svg>
+                      <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                        {searchQuery ? 'No items found matching your search' : 'No items found'}
+                      </h3>
+                    </div>
+                  );
+                }
+                return (
+                  <>
+                    {filteredItems.map(item => (
+                      <MenuItemCard
+                        key={item.id}
+                        item={item}
+                        hasImageError={imageErrors.has(item.id)}
+                        onAddToCart={addToCart}
+                        onImageError={handleImageError}
+                        cart={cart}
+                      />
+                    ))}
+                    {filteredSetMenus.map(setMenu => (
+                      <SetMenuCard
+                        key={setMenu.id}
+                        setMenu={setMenu}
+                        onAddToCart={addSetMenuToCart}
+                        cart={cart}
+                      />
+                    ))}
+                  </>
+                );
+              } else {
+                // Specific category: show only menu items for that category
+                if (filteredItems.length === 0) {
+                  return (
+                    <div className="col-span-full text-center py-12">
+                      <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z" /></svg>
+                      <h3 className="text-lg font-semibold text-gray-800 mb-2">No items found in this category</h3>
+                    </div>
+                  );
+                }
+                return (
+                  <>
+                    {filteredItems.map(item => (
+                      <MenuItemCard
+                        key={item.id}
+                        item={item}
+                        hasImageError={imageErrors.has(item.id)}
+                        onAddToCart={addToCart}
+                        onImageError={handleImageError}
+                        cart={cart}
+                      />
+                    ))}
+                  </>
+                );
+              }
+            })()
           )}
         </div>
       </div>

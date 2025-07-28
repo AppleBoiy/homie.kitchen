@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 export default function MenuItemCard({ item, onAddToCart, onImageError, hasImageError, cart }) {
   const imageUrl = item.image_url;
-  const cartItem = cart?.find(ci => ci.id === item.id && ci.type === 'menu');
+  const cartItem = cart?.find(ci => ci.id === item.id && ci.type === (item.type || 'menu'));
   const [showModal, setShowModal] = useState(false);
   const [quantity, setQuantity] = useState(cartItem ? cartItem.quantity : 1);
   const [note, setNote] = useState(cartItem ? cartItem.note || '' : '');
@@ -16,7 +16,7 @@ export default function MenuItemCard({ item, onAddToCart, onImageError, hasImage
   };
 
   const handleConfirm = () => {
-    onAddToCart({ ...item, type: 'menu', quantity, note });
+    onAddToCart({ ...item, type: item.type || 'menu', quantity, note });
     setShowModal(false);
   };
 

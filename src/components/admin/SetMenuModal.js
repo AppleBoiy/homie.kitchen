@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 
-export default function SetMenuModal({ open, onClose, onSubmit, allItems, initialData, loading }) {
+export default function SetMenuModal({ open, onClose, onSubmit, allItems, categories, initialData, loading }) {
   const [form, setForm] = useState({
     name: '',
     description: '',
     price: '',
     is_available: true,
+    category_id: '',
     items: [] // Changed from itemIds to items with quantity
   });
 
@@ -16,13 +17,14 @@ export default function SetMenuModal({ open, onClose, onSubmit, allItems, initia
         description: initialData.description || '',
         price: initialData.price || '',
         is_available: initialData.is_available !== undefined ? initialData.is_available : true,
+        category_id: initialData.category_id || '',
         items: initialData.items ? initialData.items.map(i => ({ 
           menu_item_id: i.id, 
           quantity: i.quantity || 1 
         })) : []
       });
     } else {
-      setForm({ name: '', description: '', price: '', is_available: true, items: [] });
+      setForm({ name: '', description: '', price: '', is_available: true, category_id: '', items: [] });
     }
   }, [initialData, open]);
 
@@ -122,6 +124,22 @@ export default function SetMenuModal({ open, onClose, onSubmit, allItems, initia
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+            <select
+              name="category_id"
+              value={form.category_id}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+            >
+              <option value="">Select a category</option>
+              {categories?.map(category => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="flex items-center space-x-2">
             <input

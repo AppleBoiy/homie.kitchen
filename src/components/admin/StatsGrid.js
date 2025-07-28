@@ -1,4 +1,4 @@
-import { Package, Clock, DollarSign, TrendingUp, Warehouse } from 'lucide-react';
+import { Package, Clock, DollarSign, TrendingUp, Warehouse, ShoppingBag } from 'lucide-react';
 
 export default function StatsGrid({ stats }) {
   return (
@@ -35,7 +35,16 @@ export default function StatsGrid({ stats }) {
           <TrendingUp className="w-8 h-8 sm:w-10 sm:h-10 text-orange-600" />
           <div>
             <p className="text-xs sm:text-sm font-medium text-gray-600">Menu Items</p>
-            <p className="text-2xl sm:text-3xl font-bold text-gray-800 gap-2">{stats.totalItems}</p>
+            <p className="text-2xl sm:text-3xl font-bold text-gray-800 gap-2">{stats.totalMenuItems}</p>
+          </div>
+        </div>
+      </div>
+      <div className="bg-white rounded-lg md:rounded-xl shadow-md hover:shadow-lg min-h-[120px] flex flex-col justify-center transition-all border p-6 mb-2 sm:mb-0">
+        <div className="flex items-center gap-4">
+          <ShoppingBag className="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" />
+          <div>
+            <p className="text-xs sm:text-sm font-medium text-gray-600">Goods Items</p>
+            <p className="text-2xl sm:text-3xl font-bold text-gray-800 gap-2">{stats.totalGoodsItems}</p>
           </div>
         </div>
       </div>

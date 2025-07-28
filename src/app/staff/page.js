@@ -14,8 +14,11 @@ export default function StaffPage() {
   const [orders, setOrders] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
   const [ingredients, setIngredients] = useState([]);
+  const [setMenus, setSetMenus] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const router = useRouter();
 
   useEffect(() => {
@@ -38,7 +41,9 @@ export default function StaffPage() {
       await Promise.all([
         fetchOrders(),
         fetchMenuItems(),
-        fetchIngredients()
+        fetchIngredients(),
+        fetchSetMenus(),
+        fetchCategories()
       ]);
     } finally {
       setLoading(false);
@@ -72,6 +77,26 @@ export default function StaffPage() {
       setIngredients(data);
     } catch (error) {
       console.error('Error fetching ingredients:', error);
+    }
+  };
+
+  const fetchSetMenus = async () => {
+    try {
+      const response = await fetch('/api/set-menus');
+      const data = await response.json();
+      setSetMenus(data);
+    } catch (error) {
+      console.error('Error fetching set menus:', error);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch('/api/categories');
+      const data = await response.json();
+      setCategories(data);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
     }
   };
 
@@ -113,6 +138,41 @@ export default function StaffPage() {
     }
   };
 
+  const handleToggleMenuItemAvailability = async (itemId, isAvailable) => {
+    try {
+      const response = await fetch(`/api/menu/${itemId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_available: isAvailable })
+      });
+
+      if (response.ok) {
+        fetchMenuItems();
+      }
+    } catch (error) {
+      console.error('Error updating menu item availability:', error);
+    }
+  };
+
+  const handleToggleSetMenuAvailability = async (setMenuId, isAvailable) => {
+    try {
+      const response = await fetch('/api/set-menus', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          id: setMenuId, 
+          is_available: isAvailable 
+        })
+      });
+
+      if (response.ok) {
+        fetchSetMenus();
+      }
+    } catch (error) {
+      console.error('Error updating set menu availability:', error);
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('user');
     router.push('/');
@@ -137,6 +197,34 @@ export default function StaffPage() {
   const filteredIngredients = ingredients.filter(ingredient =>
     ingredient.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const filteredMenuItems = menuItems.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    const matchesCategory = selectedCategory === 'all' || 
+      (selectedCategory === 'goods' && item.type === 'goods') ||
+      (selectedCategory === 'menu' && (item.type === 'menu' || item.type === 'free')) ||
+      (selectedCategory !== 'all' && selectedCategory !== 'goods' && selectedCategory !== 'menu' && 
+       categories.find(cat => cat.id === parseInt(selectedCategory))?.id === item.category_id);
+    
+    return matchesSearch && matchesCategory;
+  });
+
+  const filteredSetMenus = setMenus.filter(setMenu => {
+    const matchesSearch = setMenu.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (setMenu.description && setMenu.description.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    const matchesCategory = selectedCategory === 'all' || 
+      (selectedCategory !== 'all' && selectedCategory !== 'goods' && selectedCategory !== 'menu' && 
+       categories.find(cat => cat.id === parseInt(selectedCategory))?.id === setMenu.category_id);
+    
+    return matchesSearch && matchesCategory;
+  });
+
+  // Separate items by type
+  const goodsItems = filteredMenuItems.filter(item => item.type === 'goods');
+  const foodMenuItems = filteredMenuItems.filter(item => item.type === 'menu' || item.type === 'free');
 
   const pendingOrders = orders.filter(order => order.status === 'pending').length;
   const preparingOrders = orders.filter(order => order.status === 'preparing').length;
@@ -211,6 +299,18 @@ export default function StaffPage() {
                 </span>
               )}
             </button>
+            <button
+              onClick={() => setActiveTab('menu')}
+              className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
+                activeTab === 'menu'
+                  ? 'bg-orange-100 text-orange-700'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <ChefHat className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Menu Items</span>
+              <span className="sm:hidden">Menu</span>
+            </button>
           </nav>
         </div>
 
@@ -229,6 +329,171 @@ export default function StaffPage() {
               onUpdateIngredient={handleUpdateIngredient}
               userRole="staff"
             />
+          )}
+          {activeTab === 'menu' && (
+            <div className="p-4 sm:p-6">
+              {/* Category Filter */}
+              <div className="mb-6">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Filter by Category:</h3>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setSelectedCategory('all')}
+                    className={`px-3 py-1 rounded text-sm font-medium ${
+                      selectedCategory === 'all'
+                        ? 'bg-orange-100 text-orange-700'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    All Items
+                  </button>
+                  <button
+                    onClick={() => setSelectedCategory('menu')}
+                    className={`px-3 py-1 rounded text-sm font-medium ${
+                      selectedCategory === 'menu'
+                        ? 'bg-orange-100 text-orange-700'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Food & Drinks
+                  </button>
+                  <button
+                    onClick={() => setSelectedCategory('goods')}
+                    className={`px-3 py-1 rounded text-sm font-medium ${
+                      selectedCategory === 'goods'
+                        ? 'bg-orange-100 text-orange-700'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Goods
+                  </button>
+                  {categories.filter(cat => cat.name !== 'Goods').map(category => (
+                    <button
+                      key={category.id}
+                      onClick={() => setSelectedCategory(category.id.toString())}
+                      className={`px-3 py-1 rounded text-sm font-medium ${
+                        selectedCategory === category.id.toString()
+                          ? 'bg-orange-100 text-orange-700'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {category.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Food & Drinks Section */}
+              {foodMenuItems.length > 0 && (
+                <div className="mb-8">
+                  <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">
+                    Food & Drinks ({foodMenuItems.length})
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {foodMenuItems.map(item => (
+                      <div key={item.id} className="bg-gray-50 rounded-lg p-4 border">
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="font-medium text-gray-800">{item.name}</h3>
+                          <span className="text-sm font-semibold text-orange-600">${item.price.toFixed(2)}</span>
+                        </div>
+                        <p className="text-sm text-gray-600 mb-2">{item.description}</p>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-gray-500">
+                            {categories.find(cat => cat.id === item.category_id)?.name || 'Unknown'} • {item.type}
+                          </span>
+                          <button
+                            onClick={() => handleToggleMenuItemAvailability(item.id, !item.is_available)}
+                            className={`px-3 py-1 rounded text-xs font-medium ${
+                              item.is_available
+                                ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                                : 'bg-red-100 text-red-800 hover:bg-red-200'
+                            }`}
+                          >
+                            {item.is_available ? 'Available' : 'Unavailable'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Goods Section */}
+              {goodsItems.length > 0 && (
+                <div className="mb-8">
+                  <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">
+                    Goods ({goodsItems.length})
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {goodsItems.map(item => (
+                      <div key={item.id} className="bg-gray-50 rounded-lg p-4 border">
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="font-medium text-gray-800">{item.name}</h3>
+                          <span className="text-sm font-semibold text-orange-600">${item.price.toFixed(2)}</span>
+                        </div>
+                        <p className="text-sm text-gray-600 mb-2">{item.description}</p>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-gray-500">
+                            {categories.find(cat => cat.id === item.category_id)?.name || 'Unknown'} • {item.type}
+                          </span>
+                          <button
+                            onClick={() => handleToggleMenuItemAvailability(item.id, !item.is_available)}
+                            className={`px-3 py-1 rounded text-xs font-medium ${
+                              item.is_available
+                                ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                                : 'bg-red-100 text-red-800 hover:bg-red-200'
+                            }`}
+                          >
+                            {item.is_available ? 'Available' : 'Unavailable'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Set Menus Section */}
+              {filteredSetMenus.length > 0 && (
+                <div>
+                  <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">
+                    Set Menus ({filteredSetMenus.length})
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredSetMenus.map(setMenu => (
+                      <div key={setMenu.id} className="bg-gray-50 rounded-lg p-4 border">
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="font-medium text-gray-800">{setMenu.name}</h3>
+                          <span className="text-sm font-semibold text-orange-600">${setMenu.price.toFixed(2)}</span>
+                        </div>
+                        <p className="text-sm text-gray-600 mb-2">{setMenu.description}</p>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-gray-500">
+                            {setMenu.category_name || 'Uncategorized'} • {setMenu.items?.length || 0} items
+                          </span>
+                          <button
+                            onClick={() => handleToggleSetMenuAvailability(setMenu.id, !setMenu.is_available)}
+                            className={`px-3 py-1 rounded text-xs font-medium ${
+                              setMenu.is_available
+                                ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                                : 'bg-red-100 text-red-800 hover:bg-red-200'
+                            }`}
+                          >
+                            {setMenu.is_available ? 'Available' : 'Unavailable'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* No Items Message */}
+              {filteredMenuItems.length === 0 && filteredSetMenus.length === 0 && (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">No items found matching your criteria.</p>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>

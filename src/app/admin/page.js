@@ -344,19 +344,11 @@ export default function AdminPage() {
 
   // Filter data based on active tab and search query
   const getFilteredData = () => {
-    if (!searchQuery) {
-      switch (activeTab) {
-        case 'orders': return orders;
-        case 'menu': return menuItems;
-        case 'ingredients': return ingredients;
-        default: return [];
-      }
-    }
-
     const query = searchQuery.toLowerCase();
     
     switch (activeTab) {
       case 'orders':
+        if (!searchQuery) return orders;
         return orders.filter(order => 
           safeIncludes(order.id.toString(), query) ||
           safeIncludes(order.customer_name, query) ||
@@ -369,7 +361,19 @@ export default function AdminPage() {
         );
       
       case 'menu':
-        return menuItems.filter(item => 
+        const menuItemsFiltered = menuItems.filter(item => item.type === 'menu');
+        if (!searchQuery) return menuItemsFiltered;
+        return menuItemsFiltered.filter(item => 
+          safeIncludes(item.name, query) ||
+          (item.description && safeIncludes(item.description, query)) ||
+          safeIncludes(item.price.toString(), query) ||
+          categories.find(cat => cat.id === item.category_id)?.name.toLowerCase().includes(query)
+        );
+      
+      case 'goods':
+        const goodsItemsFiltered = menuItems.filter(item => item.type === 'goods');
+        if (!searchQuery) return goodsItemsFiltered;
+        return goodsItemsFiltered.filter(item => 
           safeIncludes(item.name, query) ||
           (item.description && safeIncludes(item.description, query)) ||
           safeIncludes(item.price.toString(), query) ||
@@ -377,6 +381,7 @@ export default function AdminPage() {
         );
       
       case 'ingredients':
+        if (!searchQuery) return ingredients;
         return ingredients.filter(ingredient => 
           safeIncludes(ingredient.name, query) ||
           (ingredient.description && safeIncludes(ingredient.description, query)) ||
@@ -392,11 +397,14 @@ export default function AdminPage() {
   const filteredData = getFilteredData();
 
   const safeOrders = Array.isArray(orders) ? orders : [];
+  const menuItemsCount = menuItems.filter(item => item.type === 'menu').length;
+  const goodsItemsCount = menuItems.filter(item => item.type === 'goods').length;
   const stats = {
     totalOrders: safeOrders.length,
     pendingOrders: safeOrders.filter(o => o.status === 'pending').length,
     totalRevenue: safeOrders.reduce((sum, order) => sum + order.total_amount, 0),
-    totalItems: menuItems.length,
+    totalMenuItems: menuItemsCount,
+    totalGoodsItems: goodsItemsCount,
     totalIngredients: ingredients.length,
     lowStockIngredients: ingredients.filter(i => i.stock_quantity <= i.min_stock_level).length
   };
@@ -446,6 +454,16 @@ export default function AdminPage() {
                 }`}
               >
                 Menu Management
+              </button>
+              <button
+                onClick={() => setActiveTab('goods')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'goods'
+                    ? 'border-orange-500 text-orange-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Goods
               </button>
               <button
                 onClick={() => setActiveTab('ingredients')}
@@ -521,6 +539,41 @@ export default function AdminPage() {
                   categories={categories}
                   initialData={editingItem}
                   loading={loading}
+                  defaultType="menu"
+                />
+              </>
+            )}
+
+            {activeTab === 'goods' && (
+              <>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-semibold text-gray-800">Goods Items</h2>
+                  <button
+                    onClick={() => setShowAddItem(true)}
+                    className="bg-orange-600 text-gray-900 px-4 py-2 rounded-lg hover:bg-orange-700 flex items-center"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Item
+                  </button>
+                </div>
+                <MenuList
+                  items={filteredData}
+                  categories={categories}
+                  searchQuery={searchQuery}
+                  onSearch={setSearchQuery}
+                  onEdit={setEditingItem}
+                  onDelete={handleDeleteItem}
+                  imageErrors={imageErrors}
+                  onImageError={handleImageError}
+                />
+                <MenuItemModal
+                  open={showAddItem || !!editingItem}
+                  onClose={() => { setShowAddItem(false); setEditingItem(null); }}
+                  onSubmit={editingItem ? handleUpdateItem : handleAddItem}
+                  categories={categories}
+                  initialData={editingItem}
+                  loading={loading}
+                  defaultType="goods"
                 />
               </>
             )}
@@ -567,6 +620,7 @@ export default function AdminPage() {
                   onClose={() => { setShowSetMenuModal(false); setEditingSetMenu(null); }}
                   onSubmit={handleSubmitSetMenu}
                   allItems={menuItems}
+                  categories={categories}
                   initialData={editingSetMenu}
                   loading={false}
                 />

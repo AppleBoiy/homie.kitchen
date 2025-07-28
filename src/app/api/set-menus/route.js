@@ -3,7 +3,13 @@ import db from '@/lib/db';
 
 export async function GET() {
   try {
-    const setMenus = db.prepare('SELECT * FROM set_menus').all();
+    const setMenus = db.prepare(`
+      SELECT 
+        sm.*,
+        c.name as category_name
+      FROM set_menus sm
+      LEFT JOIN categories c ON sm.category_id = c.id
+    `).all();
     const getSetMenuItems = db.prepare(`
       SELECT 
         smi.quantity,
@@ -29,13 +35,13 @@ export async function GET() {
 
 export async function POST(request) {
   try {
-    const { name, description, price, is_available = true, items = [] } = await request.json();
+    const { name, description, price, is_available = true, category_id, items = [] } = await request.json();
     if (!name || !price) {
       return NextResponse.json({ error: 'Name and price are required' }, { status: 400 });
     }
     
-    const insertSetMenu = db.prepare('INSERT INTO set_menus (name, description, price, is_available) VALUES (?, ?, ?, ?)');
-    const result = insertSetMenu.run(name, description, price, is_available ? 1 : 0);
+    const insertSetMenu = db.prepare('INSERT INTO set_menus (name, description, price, is_available, category_id) VALUES (?, ?, ?, ?, ?)');
+    const result = insertSetMenu.run(name, description, price, is_available ? 1 : 0, category_id || null);
     const setMenuId = result.lastInsertRowid;
     
     // Insert set menu items with quantities
@@ -55,13 +61,30 @@ export async function POST(request) {
 
 export async function PUT(request) {
   try {
-    const { id, name, description, price, is_available = true, items = [] } = await request.json();
-    if (!id || !name || !price) {
-      return NextResponse.json({ error: 'ID, name, and price are required' }, { status: 400 });
+    const updateData = await request.json();
+    
+    // Check if this is a partial update (only availability)
+    if (Object.keys(updateData).length === 2 && 'id' in updateData && 'is_available' in updateData) {
+      const { id, is_available } = updateData;
+      
+      const result = db.prepare('UPDATE set_menus SET is_available = ? WHERE id = ?')
+        .run(is_available ? 1 : 0, id);
+      
+      if (result.changes === 0) {
+        return NextResponse.json({ error: 'Set menu not found' }, { status: 404 });
+      }
+      
+      return NextResponse.json({ message: 'Set menu availability updated' });
     }
     
-    db.prepare('UPDATE set_menus SET name = ?, description = ?, price = ?, is_available = ? WHERE id = ?')
-      .run(name, description, price, is_available ? 1 : 0, id);
+    // Full update requires all fields
+    const { id, name, description, price, is_available = true, category_id, items = [] } = updateData;
+    if (!id || !name || !price) {
+      return NextResponse.json({ error: 'ID, name, and price are required for full updates' }, { status: 400 });
+    }
+    
+    db.prepare('UPDATE set_menus SET name = ?, description = ?, price = ?, is_available = ?, category_id = ? WHERE id = ?')
+      .run(name, description, price, is_available ? 1 : 0, category_id || null, id);
     
     // Update set menu items
     db.prepare('DELETE FROM set_menu_items WHERE set_menu_id = ?').run(id);

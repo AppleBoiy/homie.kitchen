@@ -4,11 +4,34 @@ import db from '@/lib/db';
 export async function PUT(request, { params }) {
   try {
     const { id } = await params;
-    const { name, description, price, category_id, image_url, is_available } = await request.json();
+    const updateData = await request.json();
+
+    // Check if this is a partial update (only availability)
+    if (Object.keys(updateData).length === 1 && 'is_available' in updateData) {
+      const updateMenuItem = db.prepare(`
+        UPDATE menu_items 
+        SET is_available = ?
+        WHERE id = ?
+      `);
+      
+      const result = updateMenuItem.run(updateData.is_available ? 1 : 0, id);
+
+      if (result.changes === 0) {
+        return NextResponse.json(
+          { error: 'Menu item not found' },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json({ message: 'Menu item availability updated successfully' });
+    }
+
+    // Full update requires all fields
+    const { name, description, price, category_id, image_url, is_available } = updateData;
 
     if (!name || !price || !category_id) {
       return NextResponse.json(
-        { error: 'Name, price, and category are required' },
+        { error: 'Name, price, and category are required for full updates' },
         { status: 400 }
       );
     }
