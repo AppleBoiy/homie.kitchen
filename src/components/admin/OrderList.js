@@ -1,4 +1,4 @@
-import OrderCard from '@/components/staff/OrderCard';
+import OrderCard from '@/components/admin/OrderCard';
 import SearchBar from '@/components/common/SearchBar';
 
 export default function OrderList({ orders, searchQuery, onSearch, onUpdateStatus, onRefundClick }) {

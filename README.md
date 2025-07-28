@@ -4,7 +4,7 @@ A modern restaurant management system built with Next.js, featuring user authent
 
 ## Features
 
-- **User Authentication**: Staff and customer roles with secure login/register
+- **User Authentication**: Admin and customer roles with secure login/register
 - **Menu Management**: Add, edit, and manage menu items with availability status
 - **Order Processing**: Real-time order tracking and status management
 - **Inventory Management**: Track ingredients and stock levels
@@ -15,8 +15,8 @@ A modern restaurant management system built with Next.js, featuring user authent
 ### Main Login Page
 ![Main Login Page](screenshots/main-page.png)
 
-### Staff Dashboard
-![Staff Dashboard](screenshots/staff-dashboard.png)
+### Admin Dashboard
+![Admin Dashboard](screenshots/staff-dashboard.png)
 
 ### Customer Menu
 ![Customer Menu](screenshots/customer-menu.png)
@@ -31,9 +31,9 @@ A modern restaurant management system built with Next.js, featuring user authent
 
 ### Default Login Credentials
 
-**Staff Account:**
-- Email: `staff@homie.kitchen`
-- Password: `staff123`
+**Admin Account:**
+- Email: `admin@homie.kitchen`
+- Password: `admin123`
 
 **Customer Account:**
 - Register a new account or use any email/password combination
@@ -47,7 +47,7 @@ homie.kitchen/
 │   │   ├── api/           # API routes
 │   │   ├── menu/          # Customer menu page
 │   │   ├── orders/        # Order history page
-│   │   ├── staff/         # Staff dashboard
+│   │   ├── admin/         # Admin dashboard
 │   │   └── page.js        # Main login page
 │   └── lib/
 │       ├── db.js          # Database configuration

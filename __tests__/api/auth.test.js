@@ -112,7 +112,7 @@ describe('Authentication API', () => {
       };
 
       // Test role validation
-      const validRoles = ['customer', 'staff'];
+      const validRoles = ['customer', 'admin'];
       const isValidRole = validRoles.includes(userData.role);
       expect(isValidRole).toBe(false); // Role is invalid
     });

@@ -145,7 +145,7 @@ export async function PUT(request, { params }) {
       });
     }
 
-    // Handle refund processing (staff action)
+    // Handle refund processing (admin action)
     if (action === 'process_refund') {
       // Validate input
       if (!refund_amount || refund_amount <= 0) {

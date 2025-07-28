@@ -5,19 +5,19 @@ import { useRouter } from 'next/navigation';
 import { ChefHat, ArrowLeft, Plus, Edit, Trash2, Package, Users, DollarSign, TrendingUp, Clock, Image as ImageIcon, Warehouse, Search, X, BarChart3, Menu as MenuIcon } from 'lucide-react';
 import Image from 'next/image';
 import { getImageUrl, safeIncludes } from '@/lib/utils';
-import StaffHeader from '@/components/staff/StaffHeader';
-import StatsGrid from '@/components/staff/StatsGrid';
-import MobileStatsPanel from '@/components/staff/MobileStatsPanel';
-import OrderList from '@/components/staff/OrderList';
-import MenuList from '@/components/staff/MenuList';
-import IngredientList from '@/components/staff/IngredientList';
-import MenuItemModal from '@/components/staff/MenuItemModal';
-import IngredientModal from '@/components/staff/IngredientModal';
-import SetMenuList from '@/components/staff/SetMenuList';
-import SetMenuModal from '@/components/staff/SetMenuModal';
-import RefundModal from '@/components/staff/RefundModal';
+import AdminHeader from '@/components/admin/AdminHeader';
+import StatsGrid from '@/components/admin/StatsGrid';
+import MobileStatsPanel from '@/components/admin/MobileStatsPanel';
+import OrderList from '@/components/admin/OrderList';
+import MenuList from '@/components/admin/MenuList';
+import IngredientList from '@/components/admin/IngredientList';
+import MenuItemModal from '@/components/admin/MenuItemModal';
+import IngredientModal from '@/components/admin/IngredientModal';
+import SetMenuList from '@/components/admin/SetMenuList';
+import SetMenuModal from '@/components/admin/SetMenuModal';
+import RefundModal from '@/components/admin/RefundModal';
 
-export default function StaffPage() {
+export default function AdminPage() {
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('orders');
   const [orders, setOrders] = useState([]);
@@ -46,7 +46,7 @@ export default function StaffPage() {
       return;
     }
     const userData = JSON.parse(savedUser);
-    if (userData.role !== 'staff') {
+    if (userData.role !== 'admin') {
       router.push('/');
       return;
     }
@@ -77,7 +77,7 @@ export default function StaffPage() {
 
   const fetchOrders = async () => {
     try {
-      const response = await fetch('/api/orders?role=staff');
+      const response = await fetch('/api/orders?role=admin');
       const data = await response.json();
       setOrders(data);
     } catch (error) {
@@ -155,26 +155,22 @@ export default function StaffPage() {
     );
   };
 
-  const handleAddItem = async (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    
+  const handleAddItem = async (form) => {
     try {
       const response = await fetch('/api/menu', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: formData.get('name'),
-          description: formData.get('description'),
-          price: parseFloat(formData.get('price')),
-          category_id: parseInt(formData.get('category_id')),
-          image_url: formData.get('image_url') || null
+          name: form.name,
+          description: form.description,
+          price: parseFloat(form.price),
+          category_id: parseInt(form.category_id),
+          image_url: form.image_url || null
         })
       });
 
       if (response.ok) {
         setShowAddItem(false);
-        e.target.reset();
         fetchMenuItems();
       }
     } catch (error) {
@@ -221,26 +217,22 @@ export default function StaffPage() {
     }
   };
 
-  const handleAddIngredient = async (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    
+  const handleAddIngredient = async (form) => {
     try {
       const response = await fetch('/api/ingredients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: formData.get('name'),
-          description: formData.get('description'),
-          stock_quantity: parseInt(formData.get('stock_quantity')),
-          min_stock_level: parseInt(formData.get('min_stock_level')),
-          unit: formData.get('unit')
+          name: form.name,
+          description: form.description,
+          stock_quantity: parseInt(form.stock_quantity),
+          min_stock_level: parseInt(form.min_stock_level),
+          unit: form.unit
         })
       });
 
       if (response.ok) {
         setShowAddIngredient(false);
-        e.target.reset();
         fetchIngredients();
       }
     } catch (error) {
@@ -248,20 +240,17 @@ export default function StaffPage() {
     }
   };
 
-  const handleUpdateIngredient = async (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    
+  const handleUpdateIngredient = async (form) => {
     try {
       const response = await fetch(`/api/ingredients/${editingIngredient.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: formData.get('name'),
-          description: formData.get('description'),
-          stock_quantity: parseInt(formData.get('stock_quantity')),
-          min_stock_level: parseInt(formData.get('min_stock_level')),
-          unit: formData.get('unit')
+          name: form.name,
+          description: form.description,
+          stock_quantity: parseInt(form.stock_quantity),
+          min_stock_level: parseInt(form.min_stock_level),
+          unit: form.unit
         })
       });
 
@@ -426,7 +415,7 @@ export default function StaffPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <MobileStatsPanel open={mobileStatsOpen} onClose={() => setMobileStatsOpen(false)} stats={stats} />
-      <StaffHeader
+      <AdminHeader
         user={user}
         onAnalytics={() => router.push('/analytics')}
         onOpenMobileStats={() => setMobileStatsOpen(true)}

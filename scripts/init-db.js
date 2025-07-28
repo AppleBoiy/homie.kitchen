@@ -126,11 +126,11 @@ const saladId = db.prepare('SELECT id FROM menu_items WHERE name = ?').get('Caes
 db.prepare('INSERT INTO set_menu_items (set_menu_id, menu_item_id, quantity) VALUES (?, ?, ?)').run(setMenuId, burgerId, 1);
 db.prepare('INSERT INTO set_menu_items (set_menu_id, menu_item_id, quantity) VALUES (?, ?, ?)').run(setMenuId, saladId, 1);
 
-// Insert sample staff account
+// Insert sample admin account
 const bcrypt = require('bcryptjs');
-const staffPassword = bcrypt.hashSync('staff123', 10);
+const adminPassword = bcrypt.hashSync('admin123', 10);
 db.prepare('INSERT OR IGNORE INTO users (email, password, name, role) VALUES (?, ?, ?, ?)')
-  .run('staff@homie.kitchen', staffPassword, 'Staff', 'staff');
+  .run('admin@homie.kitchen', adminPassword, 'Admin', 'admin');
 
 // Insert sample customer accounts
 const customerPassword = bcrypt.hashSync('customer123', 10);

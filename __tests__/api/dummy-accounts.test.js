@@ -12,11 +12,11 @@ describe('Dummy Accounts', () => {
     cleanupTestDatabase(db);
   });
 
-  it('should have dummy staff account', () => {
-    const staff = db.prepare('SELECT * FROM users WHERE email = ? AND role = ?').get('staff@homie.kitchen', 'staff');
-    expect(staff).toBeDefined();
-    expect(staff.name).toBe('Staff');
-    expect(staff.role).toBe('staff');
+  it('should have dummy admin account', () => {
+    const admin = db.prepare('SELECT * FROM users WHERE email = ? AND role = ?').get('admin@homie.kitchen', 'admin');
+    expect(admin).toBeDefined();
+    expect(admin.name).toBe('Admin');
+    expect(admin.role).toBe('admin');
   });
 
   it('should have dummy customer accounts', () => {
@@ -47,7 +47,7 @@ describe('Dummy Accounts', () => {
     allUsers.forEach(user => {
       expect(user.password).toBeDefined();
       expect(user.password.length).toBeGreaterThan(10); // bcrypt hash is longer than plain text
-      expect(user.password).not.toBe('staff123');
+      expect(user.password).not.toBe('admin123');
       expect(user.password).not.toBe('customer123');
     });
   });

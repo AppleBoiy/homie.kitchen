@@ -1,6 +1,6 @@
 import { ChefHat, BarChart3, Menu as MenuIcon, Users, User, LogOut } from 'lucide-react';
 
-export default function StaffHeader({ user, onAnalytics, onOpenMobileStats, onUserManagement }) {
+export default function AdminHeader({ user, onAnalytics, onOpenMobileStats, onUserManagement }) {
   return (
     <div className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
       {/* Desktop Header */}
@@ -8,7 +8,7 @@ export default function StaffHeader({ user, onAnalytics, onOpenMobileStats, onUs
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-3">
             <ChefHat className="w-8 h-8 text-orange-600" />
-            <h1 className="text-2xl font-bold text-gray-800">Staff Dashboard</h1>
+            <h1 className="text-2xl font-bold text-gray-800">Admin Dashboard</h1>
           </div>
         </div>
         
@@ -58,7 +58,7 @@ export default function StaffHeader({ user, onAnalytics, onOpenMobileStats, onUs
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center space-x-3">
             <ChefHat className="w-7 h-7 text-orange-600" />
-            <h1 className="text-lg font-bold text-gray-800">Staff Dashboard</h1>
+            <h1 className="text-lg font-bold text-gray-800">Admin Dashboard</h1>
           </div>
           
           <button 

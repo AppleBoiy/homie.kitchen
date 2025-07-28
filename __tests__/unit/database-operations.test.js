@@ -312,7 +312,7 @@ describe('Database Operations Unit Tests', () => {
       
       // Second insertion with same email should fail
       expect(() => {
-        insertUser.run('unique@example.com', hashedPassword, 'Second User', 'staff');
+        insertUser.run('unique@example.com', hashedPassword, 'Second User', 'admin');
       }).toThrow();
     });
 

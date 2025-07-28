@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChefHat, ArrowLeft, Clock, CheckCircle, XCircle, Package, Truck, RefreshCw, Search, RotateCcw } from 'lucide-react';
 import { safeIncludes } from '@/lib/utils';
-import RefundModal from '@/components/staff/RefundModal';
+import RefundModal from '@/components/admin/RefundModal';
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState([]);
@@ -323,7 +323,7 @@ export default function OrdersPage() {
                           <div className="text-xs text-yellow-700 space-y-1">
                             <p><span className="font-medium">Reason:</span> {order.refund_reason}</p>
                             <p><span className="font-medium">Requested:</span> {new Date(order.refunded_at).toLocaleString()}</p>
-                            <p><span className="font-medium">Status:</span> <span className="text-yellow-600">Pending staff review</span></p>
+                            <p><span className="font-medium">Status:</span> <span className="text-yellow-600">Pending admin review</span></p>
                           </div>
                         </div>
                       )}

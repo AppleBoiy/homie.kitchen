@@ -12,7 +12,7 @@ const initDatabase = () => {
       email TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
       name TEXT NOT NULL,
-      role TEXT NOT NULL CHECK (role IN ('customer', 'staff')),
+      role TEXT NOT NULL CHECK (role IN ('customer', 'admin')),
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -120,10 +120,10 @@ const initDatabase = () => {
     }
   });
 
-  // Insert default staff user
-  const hashedPassword = bcrypt.hashSync('staff123', 10);
+  // Insert default admin user
+  const hashedPassword = bcrypt.hashSync('admin123', 10);
   const insertUser = db.prepare('INSERT OR IGNORE INTO users (email, password, name, role) VALUES (?, ?, ?, ?)');
-  insertUser.run('staff@homie.kitchen', hashedPassword, 'Staff User', 'staff');
+  insertUser.run('admin@homie.kitchen', hashedPassword, 'Admin User', 'admin');
 
   // Insert sample ingredients
   const checkIngredient = db.prepare('SELECT id FROM ingredients WHERE name = ?');
@@ -178,15 +178,15 @@ const initDatabase = () => {
   const insertCustomer = db.prepare('INSERT OR IGNORE INTO users (email, password, name, role) VALUES (?, ?, ?, ?)');
   
   const customers = [
-    ['john@example.com', hashedPassword, 'John Smith', 'customer'],
-    ['sarah@example.com', hashedPassword, 'Sarah Johnson', 'customer'],
-    ['mike@example.com', hashedPassword, 'Mike Davis', 'customer'],
-    ['emma@example.com', hashedPassword, 'Emma Wilson', 'customer'],
-    ['alex@example.com', hashedPassword, 'Alex Brown', 'customer']
+    ['john@example.com', customerPassword, 'John Smith', 'customer'],
+    ['sarah@example.com', customerPassword, 'Sarah Johnson', 'customer'],
+    ['mike@example.com', customerPassword, 'Mike Davis', 'customer'],
+    ['emma@example.com', customerPassword, 'Emma Wilson', 'customer'],
+    ['alex@example.com', customerPassword, 'Alex Brown', 'customer']
   ];
   
   customers.forEach(([email, password, name, role]) => {
-    insertCustomer.run(email, customerPassword, name, role);
+    insertCustomer.run(email, password, name, role);
   });
 
   // Insert sample orders with realistic data

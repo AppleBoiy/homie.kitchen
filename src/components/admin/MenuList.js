@@ -1,4 +1,4 @@
-import MenuItemCard from '@/components/staff/MenuItemCard';
+import MenuItemCard from '@/components/admin/MenuItemCard';
 import SearchBar from '@/components/common/SearchBar';
 
 export default function MenuList({ items, categories, searchQuery, onSearch, onEdit, onDelete, imageErrors, onImageError }) {

@@ -28,7 +28,7 @@ describe('Orders API', () => {
   });
 
   describe('GET /api/orders', () => {
-    it('should return orders for staff role', async () => {
+    it('should return orders for admin role', async () => {
       // Test the database query directly
       const query = `
         SELECT o.*, u.name as customer_name
@@ -40,7 +40,7 @@ describe('Orders API', () => {
       const orders = db.prepare(query).all();
       
       expect(Array.isArray(orders)).toBe(true);
-      // Staff can see all orders
+      // Admin can see all orders
     });
 
     it('should return orders for customer role', async () => {

@@ -13,8 +13,8 @@ Authenticate a user and return user data.
 **Request Body:**
 ```json
 {
-  "email": "staff@homie.kitchen",
-  "password": "staff123"
+  "email": "admin@homie.kitchen",
+"password": "admin123"
 }
 ```
 
@@ -23,9 +23,9 @@ Authenticate a user and return user data.
 {
   "user": {
     "id": 1,
-    "email": "staff@homie.kitchen",
-    "name": "Staff User",
-    "role": "staff"
+    "email": "admin@homie.kitchen",
+"name": "Admin User",
+"role": "admin"
   }
 }
 ```
@@ -60,7 +60,7 @@ Register a new customer account.
 Get all available menu items (for customers).
 
 **Query Parameters:**
-- `all` (optional): Set to `true` to get all menu items regardless of availability (for staff)
+- `all` (optional): Set to `true` to get all menu items regardless of availability (for admin)
 
 **Response:**
 ```json
@@ -80,7 +80,7 @@ Get all available menu items (for customers).
 ```
 
 ### POST `/menu`
-Create a new menu item (staff only).
+Create a new menu item (admin only).
 
 **Request Body:**
 ```json
@@ -102,7 +102,7 @@ Create a new menu item (staff only).
 ```
 
 ### PUT `/menu/[id]`
-Update an existing menu item (staff only).
+Update an existing menu item (admin only).
 
 **Request Body:**
 ```json
@@ -124,7 +124,7 @@ Update an existing menu item (staff only).
 ```
 
 ### DELETE `/menu/[id]`
-Delete a menu item (staff only).
+Delete a menu item (admin only).
 
 **Response:**
 ```json
@@ -160,7 +160,7 @@ Get all menu categories.
 Get orders for the authenticated user.
 
 **Query Parameters:**
-- `role` (optional): Set to `staff` to get all orders (staff only)
+- `role` (optional): Set to `admin` to get all orders (admin only)
 
 **Response:**
 ```json
@@ -214,7 +214,7 @@ Create a new order.
 ```
 
 ### PUT `/orders/[id]`
-Update order status (staff only).
+Update order status (admin only).
 
 **Request Body:**
 ```json
@@ -233,7 +233,7 @@ Update order status (staff only).
 ## Ingredients Endpoints
 
 ### GET `/ingredients`
-Get all ingredients (staff only).
+Get all ingredients (admin only).
 
 **Response:**
 ```json
@@ -251,7 +251,7 @@ Get all ingredients (staff only).
 ```
 
 ### POST `/ingredients`
-Create a new ingredient (staff only).
+Create a new ingredient (admin only).
 
 **Request Body:**
 ```json
@@ -273,7 +273,7 @@ Create a new ingredient (staff only).
 ```
 
 ### PUT `/ingredients/[id]`
-Update an existing ingredient (staff only).
+Update an existing ingredient (admin only).
 
 **Request Body:**
 ```json
@@ -294,7 +294,7 @@ Update an existing ingredient (staff only).
 ```
 
 ### DELETE `/ingredients/[id]`
-Delete an ingredient (staff only).
+Delete an ingredient (admin only).
 
 **Response:**
 ```json
@@ -334,7 +334,7 @@ Most endpoints require authentication. The system uses session-based authenticat
 
 ## Role-Based Access
 
-- **Staff**: Can access all endpoints and manage the entire system
+- **Admin**: Can access all endpoints and manage the entire system
 - **Customer**: Can only access menu, orders (their own), and authentication endpoints
 
 ## Database Schema

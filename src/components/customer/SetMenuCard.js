@@ -115,7 +115,7 @@ export default function SetMenuCard({ setMenu, onAddToCart, cart }) {
               <textarea
                 className="w-full border rounded px-2 py-1 text-sm"
                 rows={2}
-                placeholder="Add a note for staff (optional)"
+                placeholder="Add a note for admin (optional)"
                 value={note}
                 onChange={e => setNote(e.target.value)}
               />

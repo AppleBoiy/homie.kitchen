@@ -17,7 +17,7 @@ const createTestDatabase = () => {
         email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
         name TEXT NOT NULL,
-        role TEXT NOT NULL CHECK (role IN ('customer', 'staff')),
+        role TEXT NOT NULL CHECK (role IN ('customer', 'admin')),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -149,15 +149,15 @@ const insertTestData = (db) => {
 
   // Insert test users (including dummy accounts)
   const hashedPassword = bcrypt.hashSync('test123', 10);
-  const staffPassword = bcrypt.hashSync('staff123', 10);
+  const adminPassword = bcrypt.hashSync('admin123', 10);
   const customerPassword = bcrypt.hashSync('customer123', 10);
   
   const insertUser = db.prepare('INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)');
   insertUser.run('test@example.com', hashedPassword, 'Test User', 'customer');
-  insertUser.run('staff@example.com', hashedPassword, 'Test Staff', 'staff');
+  insertUser.run('admin@example.com', hashedPassword, 'Test Admin', 'admin');
   
   // Insert dummy accounts (same as init-db.js)
-  insertUser.run('staff@homie.kitchen', staffPassword, 'Staff', 'staff');
+  insertUser.run('admin@homie.kitchen', adminPassword, 'Admin', 'admin');
   insertUser.run('john@homie.kitchen', customerPassword, 'John Customer', 'customer');
   insertUser.run('sarah@homie.kitchen', customerPassword, 'Sarah Customer', 'customer');
   insertUser.run('mike@homie.kitchen', customerPassword, 'Mike Customer', 'customer');

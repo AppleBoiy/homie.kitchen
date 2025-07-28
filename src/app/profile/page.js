@@ -129,7 +129,7 @@ export default function ProfilePage() {
 
   const getBackUrl = () => {
     if (!user) return '/';
-    return user.role === 'staff' ? '/staff' : '/menu';
+    return user.role === 'admin' ? '/admin' : '/menu';
   };
 
   if (loading) {
@@ -226,7 +226,7 @@ export default function ProfilePage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
                   <input
                     type="text"
-                    value={user?.role === 'staff' ? 'Staff' : 'Customer'}
+                    value={user?.role === 'admin' ? 'Admin' : 'Customer'}
                     disabled
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
                   />
